@@ -21,7 +21,9 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
-  # Desativar a segurança padrão do Spring Boot temporariamente
-  # para podermos testar a API sem bloqueios iniciais
-  # autoconfigure:
-  # exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+api:
+  security:
+    token:
+      # secret: ${JWT_SECRET}
+      secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      expiration: 86400000
