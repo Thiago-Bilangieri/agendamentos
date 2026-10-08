@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: agendamento
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agendamentodb
+    username: root
+    password: root
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # Como vamos usar Flyway, o Hibernate apenas valida, não cria tabelas
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  # Desativar a segurança padrão do Spring Boot temporariamente
+  # para podermos testar a API sem bloqueios iniciais
+  # autoconfigure:
+  # exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
