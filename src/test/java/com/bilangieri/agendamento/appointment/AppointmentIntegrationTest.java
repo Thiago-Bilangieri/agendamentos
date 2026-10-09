@@ -50,7 +50,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
         book(MARIA, customer(MARIA).getId(), corte.getId(), nextYearAt(10, 30))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("conflituoso")));
+                .andExpect(jsonPath("$.detail", containsString("conflituoso")));
     }
 
     @Test
@@ -110,7 +110,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
                                 {"serviceId": %d, "startAt": "%s"}
                                 """.formatted(service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("ID do cliente é obrigatório")));
+                .andExpect(jsonPath("$.detail", containsString("ID do cliente é obrigatório")));
     }
 
     @Test
@@ -129,7 +129,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
         mockMvc.perform(patch("/api/appointments/{id}/no-show", appointment.getId()).header("Authorization", bearer(ANA)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("ainda não começou")));
+                .andExpect(jsonPath("$.detail", containsString("ainda não começou")));
     }
 
     @Test
@@ -157,7 +157,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
     void bookingInThePastFailsValidation() throws Exception {
         book(JOAO, customer(JOAO).getId(), service(ANA, "Corte Feminino").getId(), LocalDateTime.now().minusDays(1).withNano(0))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.messages.startAt").exists());
+                .andExpect(jsonPath("$.errors.startAt").exists());
     }
 
     @Test
@@ -222,7 +222,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
         mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(ADMIN)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("COMPLETED para CANCELLED")));
+                .andExpect(jsonPath("$.detail", containsString("COMPLETED para CANCELLED")));
     }
 
     @Test
@@ -231,6 +231,6 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
         mockMvc.perform(patch("/api/appointments/{id}/complete", appointment.getId()).header("Authorization", bearer(ANA)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("ainda não começou")));
+                .andExpect(jsonPath("$.detail", containsString("ainda não começou")));
     }
 }

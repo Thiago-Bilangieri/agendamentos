@@ -305,24 +305,38 @@ curl -X POST http://localhost:8080/api/appointments \
 
 ### Tratamento de erros
 
-Os erros são devolvidos num formato JSON consistente, pelo `GlobalExceptionHandler`:
+Todos os erros seguem o formato **Problem Details** ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), `Content-Type: application/problem+json`), incluindo os erros de autenticação, os de permissão barrados pela segurança e os do próprio Spring (JSON malformado, método não suportado, rota inexistente...):
 
 ```json
 {
-  "timestamp": "2026-10-09T20:15:00",
+  "title": "Regra de negócio violada",
   "status": 400,
-  "error": "Business Rule Violation",
-  "message": "O profissional já possui um agendamento conflituoso neste intervalo de horários."
+  "detail": "O profissional já possui um agendamento conflituoso neste intervalo de horários.",
+  "instance": "/api/appointments",
+  "timestamp": "2026-10-09T20:15:00Z"
+}
+```
+
+Nos erros de validação, `errors` indica o problema de cada campo:
+
+```json
+{
+  "title": "Dados inválidos",
+  "status": 400,
+  "detail": "Um ou mais campos são inválidos.",
+  "errors": { "email": "Email inválido", "phone": "O telefone é obrigatório" }
 }
 ```
 
 | Status | Quando |
 |---|---|
-| `400` | Erro de validação (`messages` com o erro de cada campo) ou violação de regra de negócio |
+| `400` | Erro de validação (`errors` com o erro de cada campo), JSON malformado, parâmetro inválido ou violação de regra de negócio |
 | `401` | Token em falta, inválido ou expirado |
 | `403` | Perfil sem permissão ou recurso de outro utilizador |
 | `404` | Recurso não encontrado |
+| `405` | Método HTTP não suportado no endpoint |
 | `409` | Conflito com o estado dos dados (ex.: remover um registo com agendamentos) |
+| `500` | Erro inesperado: a resposta tem uma mensagem genérica e o detalhe fica apenas no log |
 
 ### Configuração
 
@@ -663,24 +677,38 @@ curl -X POST http://localhost:8080/api/appointments \
 
 ### Error handling
 
-Errors are returned in a consistent JSON format by `GlobalExceptionHandler`:
+Every error uses the **Problem Details** format ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457), `Content-Type: application/problem+json`), including authentication errors, permission errors raised by the security layer and Spring's own errors (malformed JSON, unsupported method, unknown route...):
 
 ```json
 {
-  "timestamp": "2026-10-09T20:15:00",
+  "title": "Regra de negócio violada",
   "status": 400,
-  "error": "Business Rule Violation",
-  "message": "O profissional já possui um agendamento conflituoso neste intervalo de horários."
+  "detail": "O profissional já possui um agendamento conflituoso neste intervalo de horários.",
+  "instance": "/api/appointments",
+  "timestamp": "2026-10-09T20:15:00Z"
+}
+```
+
+Validation errors list each field's problem in `errors`:
+
+```json
+{
+  "title": "Dados inválidos",
+  "status": 400,
+  "detail": "Um ou mais campos são inválidos.",
+  "errors": { "email": "Email inválido", "phone": "O telefone é obrigatório" }
 }
 ```
 
 | Status | When |
 |---|---|
-| `400` | Validation error (`messages` holds each field's error) or business rule violation |
+| `400` | Validation error (`errors` holds each field's error), malformed JSON, invalid parameter or business rule violation |
 | `401` | Missing, invalid or expired token |
 | `403` | Role not allowed, or resource owned by another user |
 | `404` | Resource not found |
+| `405` | HTTP method not supported by the endpoint |
 | `409` | Conflict with the current data (e.g. deleting a record that has appointments) |
+| `500` | Unexpected error: the response carries a generic message and the details only go to the log |
 
 > API messages are returned in Portuguese.
 

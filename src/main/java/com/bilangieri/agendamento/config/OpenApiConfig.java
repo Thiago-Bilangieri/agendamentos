@@ -45,8 +45,9 @@ public class OpenApiConfig {
                                 **Listagens paginadas:** `?page=0&size=20&sort=campo,asc` (máximo de 100 por página). \
                                 A resposta tem o formato `{ "content": [...], "page": {...} }`.
 
-                                **Erros:** `{ "status", "error", "message" }`; erros de validação trazem \
-                                `messages` com o erro de cada campo.""")
+                                **Erros:** formato Problem Details (RFC 9457, `application/problem+json`): \
+                                `{ "title", "status", "detail", "instance", "timestamp" }`; erros de validação trazem \
+                                `errors` com o erro de cada campo.""")
                         )
                 .tags(List.of(
                         new Tag().name(TAG_AUTH).description("Registo e login (públicos)"),

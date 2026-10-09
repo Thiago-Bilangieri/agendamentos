@@ -1,4 +1,3 @@
-
 package com.bilangieri.agendamento.security;
 
 import org.springframework.context.annotation.Bean;
@@ -10,9 +9,9 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 import jakarta.servlet.DispatcherType;
 
 @Configuration
@@ -20,11 +19,14 @@ import jakarta.servlet.DispatcherType;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final HandlerExceptionResolver handlerExceptionResolver;
 
     public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver handlerExceptionResolver
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.handlerExceptionResolver = handlerExceptionResolver;
     }
 
     @Bean
@@ -45,12 +47,14 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
-                ).exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(
-                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                )
+                // 401/403 barrados aqui seguem o mesmo formato (Problem Details) do GlobalExceptionHandler
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, e) ->
+                                handlerExceptionResolver.resolveException(request, response, null, e)
                         )
                         .accessDeniedHandler((request, response, e) ->
-                                response.setStatus(HttpStatus.FORBIDDEN.value())
+                                handlerExceptionResolver.resolveException(request, response, null, e)
                         )
                 )
                 .authorizeHttpRequests(auth -> auth

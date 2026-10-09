@@ -38,7 +38,7 @@ class AuthIntegrationTest extends IntegrationTest {
     void pendingProfessionalCannotLogIn() throws Exception {
         login(DIOGO_PENDING, "password")
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message", containsString("aguarda aprovação")));
+                .andExpect(jsonPath("$.detail", containsString("aguarda aprovação")));
     }
 
     @Test
@@ -73,8 +73,8 @@ class AuthIntegrationTest extends IntegrationTest {
                                 {"name": "", "email": "not-an-email", "password": ""}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.messages.email").exists())
-                .andExpect(jsonPath("$.messages.phone").exists());
+                .andExpect(jsonPath("$.errors.email").exists())
+                .andExpect(jsonPath("$.errors.phone").exists());
     }
 
     @Test

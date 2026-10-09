@@ -69,7 +69,7 @@ class WorkingHoursIntegrationTest extends IntegrationTest {
                                 ]}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("sobrepõem")));
+                .andExpect(jsonPath("$.detail", containsString("sobrepõem")));
     }
 
     @Test
@@ -90,7 +90,7 @@ class WorkingHoursIntegrationTest extends IntegrationTest {
                                 {"hours": [{"dayOfWeek": "MONDAY"}]}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.messages['hours[0].startTime']").exists());
+                .andExpect(jsonPath("$.errors['hours[0].startTime']").exists());
     }
 
     @Test
@@ -174,7 +174,7 @@ class WorkingHoursIntegrationTest extends IntegrationTest {
                                 {"customerId": %d, "serviceId": %d, "startAt": "%s"}
                                 """.formatted(customer(JOAO).getId(), corte.getId(), nextYearAt(12, 30))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("fora do horário de trabalho")));
+                .andExpect(jsonPath("$.detail", containsString("fora do horário de trabalho")));
     }
 
     @Test

@@ -117,7 +117,7 @@ class ServiceIntegrationTest extends IntegrationTest {
 
         mockMvc.perform(delete("/api/services/{id}", withAppointments).header("Authorization", bearer(BRUNO)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").exists());
+                .andExpect(jsonPath("$.detail").exists());
     }
 
     @Test

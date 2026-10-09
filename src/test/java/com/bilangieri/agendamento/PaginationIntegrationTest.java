@@ -62,6 +62,6 @@ class PaginationIntegrationTest extends IntegrationTest {
     void unknownSortPropertyIsABadRequest() throws Exception {
         mockMvc.perform(get("/api/services").param("sort", "doesNotExist").header("Authorization", bearer(ADMIN)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Não é possível ordenar por 'doesNotExist'."));
+                .andExpect(jsonPath("$.detail").value("Não é possível ordenar por 'doesNotExist'."));
     }
 }
