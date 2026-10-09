@@ -1,6 +1,8 @@
 package com.bilangieri.agendamento.service.service;
 
+import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
+import com.bilangieri.agendamento.exception.ConflictException;
 import com.bilangieri.agendamento.exception.NotFoundException;
 import com.bilangieri.agendamento.security.CurrentUserService;
 import com.bilangieri.agendamento.service.dto.ServiceCreateRequest;
@@ -8,6 +10,7 @@ import com.bilangieri.agendamento.service.dto.ServiceResponse;
 import com.bilangieri.agendamento.service.dto.ServiceUpdateRequest;
 import com.bilangieri.agendamento.service.entity.Service;
 import com.bilangieri.agendamento.service.repository.ServiceRepository;
+import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
@@ -23,6 +26,7 @@ public class ServiceService {
 
     private final ServiceRepository serviceRepository;
     private final UserRepository userRepository;
+    private final AppointmentRepository appointmentRepository;
     private final CurrentUserService currentUserService;
 
     @Transactional
@@ -72,6 +76,12 @@ public class ServiceService {
     public ServiceResponse findById(Long id) {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Serviço não encontrado com o ID: " + id));
+
+        // Serviços fora do catálogo respondem como inexistentes para quem não os pode ver
+        if (!canView(service)) {
+            throw new NotFoundException("Serviço não encontrado com o ID: " + id);
+        }
+
         return ServiceResponse.fromEntity(service);
     }
 
@@ -103,6 +113,11 @@ public class ServiceService {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Serviço não encontrado com o ID: " + id));
         checkOwnership(service);
+
+        if (appointmentRepository.existsByServiceId(id)) {
+            throw new ConflictException("Este serviço tem agendamentos associados e não pode ser removido. Desative-o (active = false).");
+        }
+
         serviceRepository.delete(service);
     }
 
@@ -119,6 +134,23 @@ public class ServiceService {
         return userRepository.findById(professionalId)
                 .filter(user -> user.getRole() == Role.PROFESSIONAL)
                 .orElseThrow(() -> new NotFoundException("Prestador não encontrado com o ID: " + professionalId));
+    }
+
+    // ADMIN vê tudo, PROFESSIONAL vê os seus; os restantes só o catálogo disponível
+    private boolean canView(Service service) {
+        if (currentUserService.hasRole(Role.ADMIN)) {
+            return true;
+        }
+
+        if (currentUserService.hasRole(Role.PROFESSIONAL)
+                && service.getProfessional().getEmail().equals(currentUserService.getEmail())) {
+            return true;
+        }
+
+        User professional = service.getProfessional();
+        return Boolean.TRUE.equals(service.getActive())
+                && Boolean.TRUE.equals(professional.getActive())
+                && professional.getApprovalStatus() == ApprovalStatus.APPROVED;
     }
 
     private void checkOwnership(Service service) {

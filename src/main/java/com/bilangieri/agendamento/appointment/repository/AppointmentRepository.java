@@ -16,6 +16,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     List<Appointment> findByProfessionalId(Long professionalId);
 
+    boolean existsByServiceId(Long serviceId);
+
+    boolean existsByCustomerId(Long customerId);
+
     // Query customizada para verificar conflitos de horário para o mesmo profissional.
     // O conflito ocorre se já existir um agendamento para o mesmo profissional onde:
     // O início do agendamento existente é anterior ao fim do novo E o fim do existente é posterior ao início do novo.

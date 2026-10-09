@@ -1,11 +1,13 @@
 package com.bilangieri.agendamento.customer.service;
 
+import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
 import com.bilangieri.agendamento.customer.dto.CustomerCreateRequest;
 import com.bilangieri.agendamento.customer.dto.CustomerResponse;
 import com.bilangieri.agendamento.customer.dto.CustomerUpdateRequest;
 import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
+import com.bilangieri.agendamento.exception.ConflictException;
 import com.bilangieri.agendamento.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final AppointmentRepository appointmentRepository;
 
     @Transactional
     public CustomerResponse create(CustomerCreateRequest request) {
@@ -83,6 +86,11 @@ public class CustomerService {
     public void delete(Long id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Cliente não encontrado com o ID: " + id));
+
+        if (appointmentRepository.existsByCustomerId(id)) {
+            throw new ConflictException("Este cliente tem agendamentos associados e não pode ser removido.");
+        }
+
         customerRepository.delete(customer);
     }
 }

@@ -117,8 +117,16 @@ public class AppointmentService {
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
 
+        if (appointment.getStatus().isFinal()) {
+            throw new BusinessException("Não é possível alterar um agendamento com o estado " + appointment.getStatus() + ".");
+        }
+
         LocalDateTime startAt = request.startAt();
         LocalDateTime endAt = startAt.plusMinutes(appointment.getService().getDurationMinutes());
+
+        if (request.status() != appointment.getStatus()) {
+            validateTransition(appointment.getStatus(), request.status(), startAt);
+        }
 
         // Validar conflitos ignorando o próprio agendamento atual
         List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
@@ -144,10 +152,21 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
+        validateTransition(appointment.getStatus(), status, appointment.getStartAt());
 
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
         return AppointmentResponse.fromEntity(updated);
+    }
+
+    private void validateTransition(AppointmentStatus current, AppointmentStatus target, LocalDateTime startAt) {
+        if (!current.canTransitionTo(target)) {
+            throw new BusinessException("Não é possível alterar o estado do agendamento de " + current + " para " + target + ".");
+        }
+
+        if (target.requiresStarted() && startAt.isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Não é possível marcar como " + target + " um agendamento que ainda não começou.");
+        }
     }
 
     // Devolve o Customer ligado ao utilizador autenticado se este tiver a role CUSTOMER
