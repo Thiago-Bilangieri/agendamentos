@@ -28,9 +28,12 @@ API REST para **agendamento de serviços** entre clientes e prestadores (cabelei
 |---|---|
 | **Autenticação** | Registo de clientes e de prestadores, login com emissão de token JWT. |
 | **Administração** | Listagem de prestadores por estado (`PENDING`, `APPROVED`, `REJECTED`), aprovação e rejeição. |
-| **Serviços** | CRUD de serviços (nome, descrição, preço, duração). Cada serviço pertence a um prestador. Catálogo público filtrável por prestador. |
+| **Serviços** | CRUD de serviços (nome, descrição, preço, duração). Cada serviço pertence a um prestador e pode ter uma categoria. Catálogo pesquisável por prestador, categoria e nome. |
+| **Categorias** | Categorias de serviços (ex.: Cabelo, Barbearia, Estética), geridas pelo ADMIN. |
+| **Horário e disponibilidade** | Cada prestador define o seu horário semanal (vários blocos por dia). A API calcula os horários livres de cada serviço num dia. |
 | **Clientes** | Gestão de clientes (ADMIN) e consulta do próprio perfil (CUSTOMER). |
-| **Agendamentos** | Criação, reagendamento, confirmação, conclusão e cancelamento, com validação de conflitos. |
+| **Agendamentos** | Criação, reagendamento, confirmação, conclusão e cancelamento, com validação de conflitos e do horário de trabalho. |
+| **Listagens** | Todas as listagens são paginadas e ordenáveis (`?page=0&size=20&sort=name,asc`). |
 
 ### Stack tecnológica
 
@@ -68,6 +71,8 @@ Fluxo de um pedido: `Controller → Service (regras de negócio e permissões) �
 
 ```
 users ──< services                 (um prestador oferece vários serviços)
+users ──< working_hours            (blocos do horário semanal do prestador)
+service_categories ──< services    (categoria opcional)
 users ──< appointments             (um prestador recebe vários agendamentos)
 users ──1 customers                (um cliente com conta tem um registo em customers)
 customers ──< appointments
@@ -76,7 +81,9 @@ services  ──< appointments
 
 - `users`: todas as contas (`role`, `active`, `approval_status`).
 - `customers`: dados de contacto do cliente. Pode existir **sem conta** (criado pelo ADMIN ao balcão).
-- `services`: catálogo de cada prestador (`price`, `duration_minutes`, `active`).
+- `services`: catálogo de cada prestador (`price`, `duration_minutes`, `active`, `category_id` opcional).
+- `service_categories`: categorias de serviços (nome único).
+- `working_hours`: horário semanal de cada prestador (`day_of_week`, `start_time`, `end_time`).
 - `appointments`: `start_at`, `end_at` (calculado a partir da duração do serviço) e `status`.
 
 O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration`; dados de teste em `db/testdata`). O Hibernate apenas valida (`ddl-auto: validate`).
@@ -90,6 +97,9 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
 | Ver o próprio perfil de cliente | ❌ | ❌ | ✅ |
 | Listar serviços | Todos | Os seus | Catálogo disponível |
 | Criar / editar / remover serviços | ✅ | Os seus | ❌ |
+| Gerir categorias | ✅ | ❌ | ❌ |
+| Definir horário de trabalho | ❌ | O seu | ❌ |
+| Ver horários e disponibilidade | ✅ | ✅ | ✅ |
 | Criar agendamentos | ✅ | ❌ | Para si próprio |
 | Ver agendamentos | Todos | Os que recebeu | Os seus |
 | Confirmar / concluir agendamentos | ✅ | Os que recebeu | ❌ |
@@ -103,6 +113,8 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
    - O prestador do agendamento é sempre o dono do serviço escolhido.
    - `startAt` tem de ser no futuro. O `endAt` é calculado automaticamente (`startAt + duração do serviço`).
    - Não é possível agendar um serviço inativo ou de um prestador indisponível.
+   - **Horário de trabalho**: o agendamento tem de caber inteiramente num dos blocos do horário do prestador nesse dia (ex.: um serviço de 60 min não pode começar às 12:30 se há pausa para almoço às 13:00). Um prestador sem horário definido não pode ser agendado.
+   - **Horários livres**: `GET /api/services/{id}/availability?date=` devolve os inícios possíveis, de 30 em 30 minutos, com as mesmas regras da marcação. Qualquer horário devolvido pode ser marcado.
    - **Conflitos de horário**: é rejeitado qualquer agendamento que se sobreponha a outro do mesmo prestador (exceto os `CANCELLED`). A mesma validação é aplicada no reagendamento. A regra é garantida também com pedidos simultâneos: as marcações do mesmo prestador são serializadas (`SELECT ... FOR UPDATE`) e uma *exclusion constraint* do PostgreSQL (`appointments_no_overlap`, migração V7) impede sobreposições ao nível da base de dados.
 4. **Estados do agendamento**:
 
@@ -160,8 +172,8 @@ Requer o Docker em execução: os testes de integração arrancam um PostgreSQL 
 
 | Tipo | Classes | O que cobre |
 |---|---|---|
-| Unitários | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Transições de estado, cálculo do `endAt`, conflitos de horário, disponibilidade do serviço |
-| Integração | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest`, `AppointmentConcurrencyIntegrationTest` (MockMvc) | Login e registo, `401`/`403` por perfil, visibilidade do catálogo, propriedade dos dados, conflitos e regras de estado ponta a ponta, marcações simultâneas no mesmo horário |
+| Unitários | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Transições de estado, cálculo do `endAt`, conflitos de horário, horário de trabalho, disponibilidade do serviço |
+| Integração | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest`, `AppointmentConcurrencyIntegrationTest`, `CategoryIntegrationTest`, `WorkingHoursIntegrationTest`, `PaginationIntegrationTest` (MockMvc) | Login e registo, `401`/`403` por perfil, visibilidade do catálogo, propriedade dos dados, conflitos e regras de estado ponta a ponta, marcações simultâneas no mesmo horário, categorias e filtros, horário de trabalho e horários livres, paginação |
 
 ### Documentação da API (Swagger)
 
@@ -198,7 +210,7 @@ Carregados pela migração `db/testdata/V6__insert_test_data.sql`, apenas no per
 
 ### Endpoints
 
-Todos os endpoints, exceto os de registo, login e documentação, exigem o header `Authorization: Bearer <token>`.
+Todos os endpoints, exceto os de registo, login e documentação, exigem o header `Authorization: Bearer <token>`. As listagens marcadas com 📄 são paginadas: `?page=0&size=20&sort=campo,asc` (máx. 100 por página) e devolvem `{ "content": [...], "page": { "size", "number", "totalElements", "totalPages" } }`.
 
 #### Autenticação — `/api/auth` (público)
 
@@ -212,7 +224,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 
 | Método | Endpoint | Descrição |
 |---|---|---|
-| GET | `/api/admin/professionals?status=PENDING` | Lista prestadores por estado (por omissão `PENDING`) |
+| GET | `/api/admin/professionals?status=PENDING` 📄 | Lista prestadores por estado (por omissão `PENDING`) |
 | PATCH | `/api/admin/professionals/{id}/approve` | Aprova um prestador |
 | PATCH | `/api/admin/professionals/{id}/reject` | Rejeita um prestador |
 
@@ -220,19 +232,36 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 
 | Método | Endpoint | Perfis | Descrição |
 |---|---|---|---|
-| GET | `/api/services` | Todos | Lista serviços conforme o perfil |
-| GET | `/api/services?professionalId={id}` | ADMIN, CUSTOMER | Serviços de um prestador específico |
+| GET | `/api/services` 📄 | Todos | Lista serviços conforme o perfil. Filtros opcionais e combináveis: `professionalId`, `categoryId`, `name` |
+| GET | `/api/services/{id}/availability?date=yyyy-MM-dd` | Todos | Horários livres do serviço nesse dia |
 | GET | `/api/services/{id}` | Todos | Detalhe de um serviço |
 | POST | `/api/services` | ADMIN, PROFESSIONAL | Cria um serviço |
 | PUT | `/api/services/{id}` | ADMIN, PROFESSIONAL | Atualiza um serviço |
 | DELETE | `/api/services/{id}` | ADMIN, PROFESSIONAL | Remove um serviço |
+
+#### Categorias — `/api/categories`
+
+| Método | Endpoint | Perfis | Descrição |
+|---|---|---|---|
+| GET | `/api/categories` | Todos | Lista categorias (ordem alfabética) |
+| GET | `/api/categories/{id}` | Todos | Detalhe de uma categoria |
+| POST | `/api/categories` | ADMIN | Cria uma categoria |
+| PUT | `/api/categories/{id}` | ADMIN | Atualiza uma categoria |
+| DELETE | `/api/categories/{id}` | ADMIN | Remove uma categoria sem serviços (`409` se estiver em uso) |
+
+#### Prestadores — `/api/professionals`
+
+| Método | Endpoint | Perfis | Descrição |
+|---|---|---|---|
+| GET | `/api/professionals/{id}/working-hours` | Todos | Horário semanal de um prestador |
+| PUT | `/api/professionals/me/working-hours` | PROFESSIONAL | Substitui o seu horário semanal completo |
 
 #### Clientes — `/api/customers`
 
 | Método | Endpoint | Perfis | Descrição |
 |---|---|---|---|
 | GET | `/api/customers/me` | CUSTOMER | Perfil do cliente autenticado |
-| GET | `/api/customers` | ADMIN | Lista clientes |
+| GET | `/api/customers` 📄 | ADMIN | Lista clientes |
 | GET | `/api/customers/{id}` | ADMIN | Detalhe de um cliente |
 | POST | `/api/customers` | ADMIN | Cria um cliente (sem conta) |
 | PUT | `/api/customers/{id}` | ADMIN | Atualiza um cliente |
@@ -242,7 +271,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 
 | Método | Endpoint | Perfis | Descrição |
 |---|---|---|---|
-| GET | `/api/appointments` | Todos | Lista agendamentos conforme o perfil |
+| GET | `/api/appointments` 📄 | Todos | Lista agendamentos conforme o perfil |
 | GET | `/api/appointments/{id}` | Todos (dono) | Detalhe de um agendamento |
 | POST | `/api/appointments` | ADMIN, CUSTOMER | Cria um agendamento |
 | PUT | `/api/appointments/{id}` | ADMIN | Reagenda / altera estado e notas |
@@ -258,15 +287,19 @@ curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"joao.silva@email.com","password":"password"}'
 
-# 2. Ver os serviços da prestadora Ana Ribeiro
-curl "http://localhost:8080/api/services?professionalId=4" \
+# 2. Ver os serviços de cabelo da prestadora Ana Ribeiro
+curl "http://localhost:8080/api/services?professionalId=4&categoryId=1" \
   -H "Authorization: Bearer <token>"
 
-# 3. Criar um agendamento
+# 3. Consultar os horários livres do serviço 2 numa quarta-feira
+curl "http://localhost:8080/api/services/2/availability?date=2030-01-16" \
+  -H "Authorization: Bearer <token>"
+
+# 4. Marcar um dos horários devolvidos
 curl -X POST http://localhost:8080/api/appointments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"customerId":2,"serviceId":2,"startAt":"2030-01-15T10:00:00","notes":"Primeira visita"}'
+  -d '{"customerId":2,"serviceId":2,"startAt":"2030-01-16T10:00:00","notes":"Primeira visita"}'
 ```
 
 ### Tratamento de erros
@@ -325,9 +358,9 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 ### Próximos passos
 
 - [x] Testes unitários e de integração (Testcontainers) para as regras de agendamento
-- [ ] Categorias de serviços e pesquisa por tipo de serviço
-- [ ] Horário de funcionamento e disponibilidade por prestador
-- [ ] Paginação e ordenação nas listagens
+- [x] Categorias de serviços e pesquisa por tipo de serviço
+- [x] Horário de funcionamento e disponibilidade por prestador
+- [x] Paginação e ordenação nas listagens
 - [ ] Dockerfile da aplicação e pipeline de CI
 
 ---
@@ -350,9 +383,12 @@ REST API for **service scheduling** between customers and service providers (hai
 |---|---|
 | **Authentication** | Customer and provider sign-up, login issuing a JWT. |
 | **Administration** | List providers by status (`PENDING`, `APPROVED`, `REJECTED`), approve and reject them. |
-| **Services** | Service CRUD (name, description, price, duration). Each service belongs to a provider. Public catalogue filterable by provider. |
+| **Services** | Service CRUD (name, description, price, duration). Each service belongs to a provider and may have a category. Catalogue searchable by provider, category and name. |
+| **Categories** | Service categories (e.g. Hair, Barbershop, Beauty), managed by ADMIN. |
+| **Working hours and availability** | Each provider sets a weekly schedule (several blocks per day). The API computes each service's free slots on a given day. |
 | **Customers** | Customer management (ADMIN) and own-profile lookup (CUSTOMER). |
-| **Appointments** | Booking, rescheduling, confirming, completing and cancelling, with conflict validation. |
+| **Appointments** | Booking, rescheduling, confirming, completing and cancelling, with conflict and working-hours validation. |
+| **Listings** | Every list endpoint is paginated and sortable (`?page=0&size=20&sort=name,asc`). |
 
 ### Tech stack
 
@@ -390,6 +426,8 @@ Request flow: `Controller → Service (business rules and permissions) → Repos
 
 ```
 users ──< services                 (a provider offers many services)
+users ──< working_hours            (blocks of the provider's weekly schedule)
+service_categories ──< services    (optional category)
 users ──< appointments             (a provider receives many appointments)
 users ──1 customers                (a customer with an account has one customers row)
 customers ──< appointments
@@ -398,7 +436,9 @@ services  ──< appointments
 
 - `users`: every account (`role`, `active`, `approval_status`).
 - `customers`: customer contact details. May exist **without an account** (created by an ADMIN at the front desk).
-- `services`: each provider's catalogue (`price`, `duration_minutes`, `active`).
+- `services`: each provider's catalogue (`price`, `duration_minutes`, `active`, optional `category_id`).
+- `service_categories`: service categories (unique name).
+- `working_hours`: each provider's weekly schedule (`day_of_week`, `start_time`, `end_time`).
 - `appointments`: `start_at`, `end_at` (derived from the service duration) and `status`.
 
 The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; test data in `db/testdata`). Hibernate only validates it (`ddl-auto: validate`).
@@ -412,6 +452,9 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
 | View own customer profile | ❌ | ❌ | ✅ |
 | List services | All | Own | Available catalogue |
 | Create / update / delete services | ✅ | Own | ❌ |
+| Manage categories | ✅ | ❌ | ❌ |
+| Set working hours | ❌ | Own | ❌ |
+| View schedules and availability | ✅ | ✅ | ✅ |
 | Book appointments | ✅ | ❌ | For themselves |
 | View appointments | All | Received | Own |
 | Confirm / complete appointments | ✅ | Received | ❌ |
@@ -425,6 +468,8 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
    - The appointment's provider is always the owner of the chosen service.
    - `startAt` must be in the future. `endAt` is computed automatically (`startAt + service duration`).
    - Inactive services and unavailable providers cannot be booked.
+   - **Working hours**: the appointment must fit entirely inside one of the provider's schedule blocks for that day (e.g. a 60-minute service cannot start at 12:30 if there is a lunch break at 13:00). A provider without working hours cannot be booked.
+   - **Free slots**: `GET /api/services/{id}/availability?date=` returns the possible start times, every 30 minutes, using the same rules as booking. Any returned slot can be booked.
    - **Time conflicts**: any booking that overlaps another appointment of the same provider (except `CANCELLED` ones) is rejected. The same check applies when rescheduling. The rule also holds under concurrent requests: bookings for the same provider are serialised (`SELECT ... FOR UPDATE`) and a PostgreSQL *exclusion constraint* (`appointments_no_overlap`, migration V7) prevents overlaps at the database level.
 4. **Appointment lifecycle**:
 
@@ -482,8 +527,8 @@ Requires Docker to be running: integration tests start a throwaway PostgreSQL wi
 
 | Type | Classes | Covers |
 |---|---|---|
-| Unit | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Status transitions, `endAt` calculation, time conflicts, service availability |
-| Integration | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest`, `AppointmentConcurrencyIntegrationTest` (MockMvc) | Login and sign-up, `401`/`403` per role, catalogue visibility, data ownership, conflicts and status rules end to end, simultaneous bookings for the same slot |
+| Unit | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Status transitions, `endAt` calculation, time conflicts, working hours, service availability |
+| Integration | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest`, `AppointmentConcurrencyIntegrationTest`, `CategoryIntegrationTest`, `WorkingHoursIntegrationTest`, `PaginationIntegrationTest` (MockMvc) | Login and sign-up, `401`/`403` per role, catalogue visibility, data ownership, conflicts and status rules end to end, simultaneous bookings for the same slot, categories and filters, working hours and free slots, pagination |
 
 ### API documentation (Swagger)
 
@@ -520,7 +565,7 @@ Loaded by the `db/testdata/V6__insert_test_data.sql` migration, under the `dev` 
 
 ### Endpoints
 
-Every endpoint except sign-up, login and documentation requires the `Authorization: Bearer <token>` header.
+Every endpoint except sign-up, login and documentation requires the `Authorization: Bearer <token>` header. Lists marked with 📄 are paginated: `?page=0&size=20&sort=field,asc` (max. 100 per page) and return `{ "content": [...], "page": { "size", "number", "totalElements", "totalPages" } }`.
 
 #### Authentication — `/api/auth` (public)
 
@@ -534,7 +579,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/admin/professionals?status=PENDING` | Lists providers by status (defaults to `PENDING`) |
+| GET | `/api/admin/professionals?status=PENDING` 📄 | Lists providers by status (defaults to `PENDING`) |
 | PATCH | `/api/admin/professionals/{id}/approve` | Approves a provider |
 | PATCH | `/api/admin/professionals/{id}/reject` | Rejects a provider |
 
@@ -542,19 +587,36 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 
 | Method | Endpoint | Roles | Description |
 |---|---|---|---|
-| GET | `/api/services` | All | Lists services according to the caller's role |
-| GET | `/api/services?professionalId={id}` | ADMIN, CUSTOMER | Services of a specific provider |
+| GET | `/api/services` 📄 | All | Lists services according to the caller's role. Optional, combinable filters: `professionalId`, `categoryId`, `name` |
+| GET | `/api/services/{id}/availability?date=yyyy-MM-dd` | All | Free slots for the service on that day |
 | GET | `/api/services/{id}` | All | Service details |
 | POST | `/api/services` | ADMIN, PROFESSIONAL | Creates a service |
 | PUT | `/api/services/{id}` | ADMIN, PROFESSIONAL | Updates a service |
 | DELETE | `/api/services/{id}` | ADMIN, PROFESSIONAL | Deletes a service |
+
+#### Categories — `/api/categories`
+
+| Method | Endpoint | Roles | Description |
+|---|---|---|---|
+| GET | `/api/categories` | All | Lists categories (alphabetical) |
+| GET | `/api/categories/{id}` | All | Category details |
+| POST | `/api/categories` | ADMIN | Creates a category |
+| PUT | `/api/categories/{id}` | ADMIN | Updates a category |
+| DELETE | `/api/categories/{id}` | ADMIN | Deletes a category with no services (`409` if in use) |
+
+#### Providers — `/api/professionals`
+
+| Method | Endpoint | Roles | Description |
+|---|---|---|---|
+| GET | `/api/professionals/{id}/working-hours` | All | A provider's weekly schedule |
+| PUT | `/api/professionals/me/working-hours` | PROFESSIONAL | Replaces their whole weekly schedule |
 
 #### Customers — `/api/customers`
 
 | Method | Endpoint | Roles | Description |
 |---|---|---|---|
 | GET | `/api/customers/me` | CUSTOMER | Authenticated customer's profile |
-| GET | `/api/customers` | ADMIN | Lists customers |
+| GET | `/api/customers` 📄 | ADMIN | Lists customers |
 | GET | `/api/customers/{id}` | ADMIN | Customer details |
 | POST | `/api/customers` | ADMIN | Creates a customer (no account) |
 | PUT | `/api/customers/{id}` | ADMIN | Updates a customer |
@@ -564,7 +626,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 
 | Method | Endpoint | Roles | Description |
 |---|---|---|---|
-| GET | `/api/appointments` | All | Lists appointments according to the caller's role |
+| GET | `/api/appointments` 📄 | All | Lists appointments according to the caller's role |
 | GET | `/api/appointments/{id}` | All (owner) | Appointment details |
 | POST | `/api/appointments` | ADMIN, CUSTOMER | Books an appointment |
 | PUT | `/api/appointments/{id}` | ADMIN | Reschedules / changes status and notes |
@@ -580,15 +642,19 @@ curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"joao.silva@email.com","password":"password"}'
 
-# 2. List provider Ana Ribeiro's services
-curl "http://localhost:8080/api/services?professionalId=4" \
+# 2. List provider Ana Ribeiro's hair services
+curl "http://localhost:8080/api/services?professionalId=4&categoryId=1" \
   -H "Authorization: Bearer <token>"
 
-# 3. Book an appointment
+# 3. Check service 2's free slots on a Wednesday
+curl "http://localhost:8080/api/services/2/availability?date=2030-01-16" \
+  -H "Authorization: Bearer <token>"
+
+# 4. Book one of the returned slots
 curl -X POST http://localhost:8080/api/appointments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"customerId":2,"serviceId":2,"startAt":"2030-01-15T10:00:00","notes":"First visit"}'
+  -d '{"customerId":2,"serviceId":2,"startAt":"2030-01-16T10:00:00","notes":"First visit"}'
 ```
 
 ### Error handling
@@ -649,9 +715,9 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 ### Roadmap
 
 - [x] Unit and integration tests (Testcontainers) for the booking rules
-- [ ] Service categories and search by service type
-- [ ] Provider working hours and availability
-- [ ] Pagination and sorting on list endpoints
+- [x] Service categories and search by service type
+- [x] Provider working hours and availability
+- [x] Pagination and sorting on list endpoints
 - [ ] Application Dockerfile and CI pipeline
 
 ---
