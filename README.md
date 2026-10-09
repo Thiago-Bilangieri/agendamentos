@@ -191,7 +191,7 @@ Requer o Docker em execução: os testes de integração arrancam um PostgreSQL 
 
 ### Utilizadores de teste
 
-Carregados pela migração `db/testdata/V6__insert_test_data.sql`, apenas no perfil `dev`. **A password de todos é `password`.**
+Carregados pelas migrações de `db/testdata` (V2, V6 e V9.1), apenas no perfil `dev`. **A password de todos é `password`.**
 
 | Email | Perfil | Situação |
 |---|---|---|
@@ -343,11 +343,13 @@ Em desenvolvimento não é preciso configurar nada: o perfil `dev` é ativado au
 | `DB_USERNAME` / `DB_PASSWORD` | Credenciais da base de dados | ✅ |
 | `JWT_SECRET` | Chave de assinatura do JWT (mínimo 32 caracteres) | ✅ |
 | `JWT_EXPIRATION` | Validade do token em ms (por omissão `86400000`, 24 h) | ❌ |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (password com 8+ caracteres). Nunca altera uma conta existente | No primeiro arranque |
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \
 DB_URL=jdbc:postgresql://db:5432/agendamentodb DB_USERNAME=app DB_PASSWORD=*** \
 JWT_SECRET="$(openssl rand -base64 48)" \
+ADMIN_EMAIL=admin@empresa.com ADMIN_PASSWORD=*** \
 java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 ```
 
@@ -546,7 +548,7 @@ Requires Docker to be running: integration tests start a throwaway PostgreSQL wi
 
 ### Test users
 
-Loaded by the `db/testdata/V6__insert_test_data.sql` migration, under the `dev` profile only. **Every password is `password`.**
+Loaded by the `db/testdata` migrations (V2, V6 and V9.1), under the `dev` profile only. **Every password is `password`.**
 
 | Email | Role | Status |
 |---|---|---|
@@ -700,11 +702,13 @@ Nothing needs to be configured for development: the `dev` profile is activated a
 | `DB_USERNAME` / `DB_PASSWORD` | Database credentials | ✅ |
 | `JWT_SECRET` | JWT signing key (at least 32 characters) | ✅ |
 | `JWT_EXPIRATION` | Token lifetime in ms (defaults to `86400000`, 24 h) | ❌ |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Creates the first ADMIN on startup if that email does not exist yet (password with 8+ characters). Never changes an existing account | On first start |
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \
 DB_URL=jdbc:postgresql://db:5432/agendamentodb DB_USERNAME=app DB_PASSWORD=*** \
 JWT_SECRET="$(openssl rand -base64 48)" \
+ADMIN_EMAIL=admin@empresa.com ADMIN_PASSWORD=*** \
 java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 ```
 

@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    boolean existsByRole(Role role);
+
     Page<User> findByRoleAndApprovalStatus(Role role, ApprovalStatus approvalStatus, Pageable pageable);
 
     // SELECT ... FOR UPDATE: serializa as marcações do mesmo prestador até ao fim da transação

@@ -41,6 +41,10 @@ api:
       # Mínimo de 32 caracteres (HMAC-SHA256)
       secret: ${JWT_SECRET}
       expiration: ${JWT_EXPIRATION:86400000}
+  admin:
+    # Opcional: cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (ver AdminBootstrap)
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
 
 springdoc:
   api-docs:

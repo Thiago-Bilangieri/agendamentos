@@ -14,7 +14,7 @@ spring:
         format_sql: true
 
   flyway:
-    # Inclui os dados de teste (utilizadores com password "password")
+    # Inclui os dados de teste (V2, V6, V9.1): utilizadores com password "password", serviços, agendamentos...
     locations: classpath:db/migration,classpath:db/testdata
 
 api:
