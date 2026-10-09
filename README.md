@@ -156,6 +156,13 @@ A API fica disponível em **http://localhost:8080**. Ao arrancar, o Flyway cria 
 ./mvnw test
 ```
 
+Requer o Docker em execução: os testes de integração arrancam um PostgreSQL descartável com [Testcontainers](https://testcontainers.com/) e **nunca tocam na base de dados de desenvolvimento**. Cada teste corre numa transação revertida no fim.
+
+| Tipo | Classes | O que cobre |
+|---|---|---|
+| Unitários | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Transições de estado, cálculo do `endAt`, conflitos de horário, disponibilidade do serviço |
+| Integração | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest` (MockMvc) | Login e registo, `401`/`403` por perfil, visibilidade do catálogo, propriedade dos dados, conflitos e regras de estado ponta a ponta |
+
 ### Documentação da API (Swagger)
 
 | Recurso | URL |
@@ -315,7 +322,7 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 
 ### Próximos passos
 
-- [ ] Testes unitários e de integração (Testcontainers) para as regras de agendamento
+- [x] Testes unitários e de integração (Testcontainers) para as regras de agendamento
 - [ ] Categorias de serviços e pesquisa por tipo de serviço
 - [ ] Horário de funcionamento e disponibilidade por prestador
 - [ ] Paginação e ordenação nas listagens
@@ -468,6 +475,13 @@ The API is available at **http://localhost:8080**. On startup, Flyway creates th
 ```bash
 ./mvnw test
 ```
+
+Requires Docker to be running: integration tests start a throwaway PostgreSQL with [Testcontainers](https://testcontainers.com/) and **never touch the development database**. Each test runs in a transaction that is rolled back at the end.
+
+| Type | Classes | Covers |
+|---|---|---|
+| Unit | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Status transitions, `endAt` calculation, time conflicts, service availability |
+| Integration | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest` (MockMvc) | Login and sign-up, `401`/`403` per role, catalogue visibility, data ownership, conflicts and status rules end to end |
 
 ### API documentation (Swagger)
 
@@ -630,7 +644,7 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 
 ### Roadmap
 
-- [ ] Unit and integration tests (Testcontainers) for the booking rules
+- [x] Unit and integration tests (Testcontainers) for the booking rules
 - [ ] Service categories and search by service type
 - [ ] Provider working hours and availability
 - [ ] Pagination and sorting on list endpoints

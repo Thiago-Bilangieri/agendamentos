@@ -1,0 +1,171 @@
+package com.bilangieri.agendamento.appointment;
+
+import com.bilangieri.agendamento.IntegrationTest;
+import com.bilangieri.agendamento.appointment.entity.Appointment;
+import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
+import com.bilangieri.agendamento.service.entity.Service;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.ResultActions;
+
+import java.time.LocalDateTime;
+
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class AppointmentIntegrationTest extends IntegrationTest {
+
+    private ResultActions book(String asEmail, Long customerId, Long serviceId, LocalDateTime startAt) throws Exception {
+        return mockMvc.perform(post("/api/appointments").header("Authorization", bearer(asEmail))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"customerId": %d, "serviceId": %d, "startAt": "%s"}
+                        """.formatted(customerId, serviceId, startAt)));
+    }
+
+    @Test
+    void customerBooksAppointmentWithEndCalculatedFromDuration() throws Exception {
+        Service corte = service(ANA, "Corte Feminino"); // 60 minutos
+        LocalDateTime start = nextYearAt(10, 0);
+
+        book(JOAO, customer(JOAO).getId(), corte.getId(), start)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("SCHEDULED"))
+                .andExpect(jsonPath("$.professionalId").value(user(ANA).getId()))
+                .andExpect(jsonPath("$.endAt", containsString("T11:00")));
+    }
+
+    @Test
+    void overlappingBookingForTheSameProfessionalIsRejected() throws Exception {
+        Service corte = service(ANA, "Corte Feminino");
+        book(JOAO, customer(JOAO).getId(), corte.getId(), nextYearAt(10, 0)).andExpect(status().isCreated());
+
+        book(MARIA, customer(MARIA).getId(), corte.getId(), nextYearAt(10, 30))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("conflituoso")));
+    }
+
+    @Test
+    void bookingRightAfterThePreviousOneEndsIsAllowed() throws Exception {
+        Service corte = service(ANA, "Corte Feminino");
+        book(JOAO, customer(JOAO).getId(), corte.getId(), nextYearAt(10, 0)).andExpect(status().isCreated());
+
+        book(MARIA, customer(MARIA).getId(), corte.getId(), nextYearAt(11, 0)).andExpect(status().isCreated());
+    }
+
+    @Test
+    void cancelledAppointmentFreesTheSlot() throws Exception {
+        Service corte = service(ANA, "Corte Feminino");
+        saveAppointment(customer(JOAO), corte, nextYearAt(10, 0), AppointmentStatus.CANCELLED);
+
+        book(MARIA, customer(MARIA).getId(), corte.getId(), nextYearAt(10, 0)).andExpect(status().isCreated());
+    }
+
+    @Test
+    void sameTimeWithAnotherProfessionalIsAllowed() throws Exception {
+        book(JOAO, customer(JOAO).getId(), service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))
+                .andExpect(status().isCreated());
+
+        book(MARIA, customer(MARIA).getId(), service(BRUNO, "Barba").getId(), nextYearAt(10, 0))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void customerCannotBookForAnotherCustomer() throws Exception {
+        book(JOAO, customer(MARIA).getId(), service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void serviceFromProfessionalNotApprovedCannotBeBooked() throws Exception {
+        book(ADMIN, customer(JOAO).getId(), service(DIOGO_PENDING, "Massagem Relaxante").getId(), nextYearAt(10, 0))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void bookingInThePastFailsValidation() throws Exception {
+        book(JOAO, customer(JOAO).getId(), service(ANA, "Corte Feminino").getId(), LocalDateTime.now().minusDays(1).withNano(0))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.messages.startAt").exists());
+    }
+
+    @Test
+    void professionalCannotBookAppointments() throws Exception {
+        book(ANA, customer(JOAO).getId(), service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerOnlyListsOwnAppointments() throws Exception {
+        mockMvc.perform(get("/api/appointments").header("Authorization", bearer(JOAO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].customerName", everyItem(is("João Silva"))));
+    }
+
+    @Test
+    void customerCannotSeeAnotherCustomersAppointment() throws Exception {
+        Appointment marias = saveAppointment(customer(MARIA), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(get("/api/appointments/{id}", marias.getId()).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void professionalConfirmsOwnAppointment() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/confirm", appointment.getId()).header("Authorization", bearer(ANA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+    }
+
+    @Test
+    void professionalCannotTouchAnotherProfessionalsAppointment() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/confirm", appointment.getId()).header("Authorization", bearer(BRUNO)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerCannotConfirmAppointments() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/confirm", appointment.getId()).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void customerCancelsOwnAppointment() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void completedAppointmentCannotBeCancelled() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
+                LocalDateTime.now().minusDays(2).withNano(0), AppointmentStatus.COMPLETED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(ADMIN)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("COMPLETED para CANCELLED")));
+    }
+
+    @Test
+    void futureAppointmentCannotBeCompleted() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.CONFIRMED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/complete", appointment.getId()).header("Authorization", bearer(ANA)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("ainda não começou")));
+    }
+}
