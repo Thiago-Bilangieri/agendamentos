@@ -175,14 +175,37 @@ class AppointmentServiceTest {
     @Test
     void customerCannotBookForAnotherCustomer() {
         loggedInAs(Role.CUSTOMER);
-        Customer other = Customer.builder().id(2L).name("Maria").build();
-        when(customerRepository.findById(2L)).thenReturn(Optional.of(other));
         when(currentUserService.getEmail()).thenReturn("joao@test.com");
         when(customerRepository.findByUserEmail("joao@test.com")).thenReturn(Optional.of(customer));
 
         assertThatThrownBy(() -> appointmentService.create(
                 new AppointmentCreateRequest(2L, 100L, LocalDateTime.now().plusDays(1), null)))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void customerBooksForThemselvesWithoutSendingTheirId() {
+        loggedInAs(Role.CUSTOMER);
+        when(currentUserService.getEmail()).thenReturn("joao@test.com");
+        when(customerRepository.findByUserEmail("joao@test.com")).thenReturn(Optional.of(customer));
+        when(serviceRepository.findById(100L)).thenReturn(Optional.of(service));
+        when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AppointmentResponse response = appointmentService.create(
+                new AppointmentCreateRequest(null, 100L, LocalDateTime.now().plusDays(1), null));
+
+        assertThat(response.customerId()).isEqualTo(customer.getId());
+        verify(customerRepository, never()).findById(any());
+    }
+
+    @Test
+    void adminMustSayWhichCustomerTheAppointmentIsFor() {
+        loggedInAs(Role.ADMIN);
+
+        assertThatThrownBy(() -> appointmentService.create(
+                new AppointmentCreateRequest(null, 100L, LocalDateTime.now().plusDays(1), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("ID do cliente é obrigatório");
     }
 
     private Appointment existingAppointment(AppointmentStatus status, LocalDateTime startAt) {

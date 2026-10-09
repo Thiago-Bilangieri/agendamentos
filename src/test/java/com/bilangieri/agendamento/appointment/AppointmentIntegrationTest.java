@@ -92,6 +92,28 @@ class AppointmentIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void customerCanBookWithoutSendingTheirOwnId() throws Exception {
+        mockMvc.perform(post("/api/appointments").header("Authorization", bearer(JOAO))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"serviceId": %d, "startAt": "%s"}
+                                """.formatted(service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.customerId").value(customer(JOAO).getId()));
+    }
+
+    @Test
+    void adminMustSendTheCustomerId() throws Exception {
+        mockMvc.perform(post("/api/appointments").header("Authorization", bearer(ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"serviceId": %d, "startAt": "%s"}
+                                """.formatted(service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("ID do cliente é obrigatório")));
+    }
+
+    @Test
     void customerCannotBookForAnotherCustomer() throws Exception {
         book(JOAO, customer(MARIA).getId(), service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))
                 .andExpect(status().isForbidden());

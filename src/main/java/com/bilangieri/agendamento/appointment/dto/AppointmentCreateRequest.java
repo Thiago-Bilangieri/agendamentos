@@ -7,8 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
 public record AppointmentCreateRequest(
-        @NotNull(message = "O ID do cliente é obrigatório")
-        @Schema(description = "O CUSTOMER só pode indicar o seu próprio id", example = "2")
+        // Obrigatório só para o ADMIN; o CUSTOMER marca sempre para si próprio
+        @Schema(description = "Obrigatório para o ADMIN. O CUSTOMER pode omiti-lo (marca sempre para si próprio); "
+                + "se o enviar, tem de ser o seu id", example = "2")
         Long customerId,
 
         @NotNull(message = "O ID do serviço é obrigatório")
@@ -21,7 +22,6 @@ public record AppointmentCreateRequest(
         LocalDateTime startAt,
 
         @Schema(example = "Primeira visita")
-
         String notes
 ) {
 }

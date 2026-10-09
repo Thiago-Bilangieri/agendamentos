@@ -44,15 +44,7 @@ public class AppointmentService {
     @Transactional
     public AppointmentResponse create(AppointmentCreateRequest request) {
         // 1. Buscar e validar se o cliente existe
-        Customer customer = customerRepository.findById(request.customerId())
-                .orElseThrow(() -> new NotFoundException("Cliente não encontrado com o ID: " + request.customerId()));
-
-        // Um CUSTOMER só pode criar agendamentos para si próprio
-        currentCustomer().ifPresent(current -> {
-            if (!current.getId().equals(customer.getId())) {
-                throw new AccessDeniedException("Não pode criar agendamentos para outro cliente.");
-            }
-        });
+        Customer customer = resolveCustomer(request.customerId());
 
         // 2. Buscar e validar se o serviço existe
         Service service = serviceRepository.findById(request.serviceId())
@@ -199,6 +191,25 @@ public class AppointmentService {
         if (target.requiresStarted() && startAt.isAfter(LocalDateTime.now())) {
             throw new BusinessException("Não é possível marcar como " + target + " um agendamento que ainda não começou.");
         }
+    }
+
+    // Um CUSTOMER marca sempre para si próprio (o customerId é opcional e, se vier, tem de ser o seu);
+    // o ADMIN tem de indicar o cliente
+    private Customer resolveCustomer(Long customerId) {
+        Optional<Customer> current = currentCustomer();
+        if (current.isPresent()) {
+            if (customerId != null && !customerId.equals(current.get().getId())) {
+                throw new AccessDeniedException("Não pode criar agendamentos para outro cliente.");
+            }
+            return current.get();
+        }
+
+        if (customerId == null) {
+            throw new BusinessException("O ID do cliente é obrigatório.");
+        }
+
+        return customerRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Cliente não encontrado com o ID: " + customerId));
     }
 
     // Devolve o Customer ligado ao utilizador autenticado se este tiver a role CUSTOMER

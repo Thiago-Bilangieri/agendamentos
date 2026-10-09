@@ -273,7 +273,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 |---|---|---|---|
 | GET | `/api/appointments` 📄 | Todos | Lista agendamentos conforme o perfil |
 | GET | `/api/appointments/{id}` | Todos (dono) | Detalhe de um agendamento |
-| POST | `/api/appointments` | ADMIN, CUSTOMER | Cria um agendamento |
+| POST | `/api/appointments` | ADMIN, CUSTOMER | Cria um agendamento. O cliente pode omitir o `customerId` (marca sempre para si próprio); o ADMIN tem de o indicar |
 | PUT | `/api/appointments/{id}` | ADMIN | Reagenda / altera estado e notas |
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirma |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marca como concluído |
@@ -299,7 +299,7 @@ curl "http://localhost:8080/api/services/2/availability?date=2030-01-16" \
 curl -X POST http://localhost:8080/api/appointments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"customerId":2,"serviceId":2,"startAt":"2030-01-16T10:00:00","notes":"Primeira visita"}'
+  -d '{"serviceId":2,"startAt":"2030-01-16T10:00:00","notes":"Primeira visita"}'
 ```
 
 ### Tratamento de erros
@@ -630,7 +630,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 |---|---|---|---|
 | GET | `/api/appointments` 📄 | All | Lists appointments according to the caller's role |
 | GET | `/api/appointments/{id}` | All (owner) | Appointment details |
-| POST | `/api/appointments` | ADMIN, CUSTOMER | Books an appointment |
+| POST | `/api/appointments` | ADMIN, CUSTOMER | Books an appointment. Customers may omit `customerId` (they always book for themselves); ADMIN must send it |
 | PUT | `/api/appointments/{id}` | ADMIN | Reschedules / changes status and notes |
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirms |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marks as completed |
@@ -656,7 +656,7 @@ curl "http://localhost:8080/api/services/2/availability?date=2030-01-16" \
 curl -X POST http://localhost:8080/api/appointments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"customerId":2,"serviceId":2,"startAt":"2030-01-16T10:00:00","notes":"First visit"}'
+  -d '{"serviceId":2,"startAt":"2030-01-16T10:00:00","notes":"First visit"}'
 ```
 
 ### Error handling
