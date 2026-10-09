@@ -120,7 +120,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
     void customerOnlyListsOwnAppointments() throws Exception {
         mockMvc.perform(get("/api/appointments").header("Authorization", bearer(JOAO)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].customerName", everyItem(is("João Silva"))));
+                .andExpect(jsonPath("$.content[*].customerName", everyItem(is("João Silva"))));
     }
 
     @Test

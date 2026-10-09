@@ -15,10 +15,10 @@ import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @org.springframework.stereotype.Service // Evita conflito com o nome da classe Service
 @RequiredArgsConstructor
@@ -53,23 +53,21 @@ public class ServiceService {
     // CUSTOMER vê o catálogo disponível, PROFESSIONAL vê os seus serviços, ADMIN vê todos.
     // professionalId (opcional) filtra por prestador; para o PROFESSIONAL é ignorado.
     @Transactional(readOnly = true)
-    public List<ServiceResponse> findAll(Long professionalId) {
-        List<Service> services;
+    public Page<ServiceResponse> findAll(Long professionalId, Pageable pageable) {
+        Page<Service> services;
         if (currentUserService.hasRole(Role.ADMIN)) {
             services = professionalId == null
-                    ? serviceRepository.findAll()
-                    : serviceRepository.findByProfessionalId(professionalId);
+                    ? serviceRepository.findAll(pageable)
+                    : serviceRepository.findByProfessionalId(professionalId, pageable);
         } else if (currentUserService.hasRole(Role.PROFESSIONAL)) {
-            services = serviceRepository.findByProfessionalId(currentUserService.getUser().getId());
+            services = serviceRepository.findByProfessionalId(currentUserService.getUser().getId(), pageable);
         } else {
             services = professionalId == null
-                    ? serviceRepository.findAvailable()
-                    : serviceRepository.findAvailableByProfessionalId(professionalId);
+                    ? serviceRepository.findAvailable(pageable)
+                    : serviceRepository.findAvailableByProfessionalId(professionalId, pageable);
         }
 
-        return services.stream()
-                .map(ServiceResponse::fromEntity)
-                .toList();
+        return services.map(ServiceResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)

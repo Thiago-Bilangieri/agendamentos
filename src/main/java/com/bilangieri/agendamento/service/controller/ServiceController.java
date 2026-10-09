@@ -6,11 +6,13 @@ import com.bilangieri.agendamento.service.dto.ServiceUpdateRequest;
 import com.bilangieri.agendamento.service.service.ServiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/services")
@@ -26,10 +28,10 @@ public class ServiceController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ServiceResponse>> findAll(
-            @RequestParam(required = false) Long professionalId) {
-        List<ServiceResponse> responses = serviceService.findAll(professionalId);
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<Page<ServiceResponse>> findAll(
+            @RequestParam(required = false) Long professionalId,
+            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(serviceService.findAll(professionalId, pageable));
     }
 
     @GetMapping("/{id}")

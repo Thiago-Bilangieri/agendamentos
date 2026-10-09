@@ -7,11 +7,13 @@ import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
 import com.bilangieri.agendamento.appointment.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -27,9 +29,9 @@ public class AppointmentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AppointmentResponse>> findAll() {
-        List<AppointmentResponse> responses = appointmentService.findAll();
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<Page<AppointmentResponse>> findAll(
+            @ParameterObject @PageableDefault(sort = "startAt") Pageable pageable) {
+        return ResponseEntity.ok(appointmentService.findAll(pageable));
     }
 
     @GetMapping("/{id}")

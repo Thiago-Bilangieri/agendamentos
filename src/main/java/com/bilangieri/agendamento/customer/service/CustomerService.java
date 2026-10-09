@@ -10,10 +10,10 @@ import com.bilangieri.agendamento.exception.BusinessException;
 import com.bilangieri.agendamento.exception.ConflictException;
 import com.bilangieri.agendamento.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -41,10 +41,8 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
-    public List<CustomerResponse> findAll() {
-        return customerRepository.findAll().stream()
-                .map(CustomerResponse::fromEntity)
-                .toList();
+    public Page<CustomerResponse> findAll(Pageable pageable) {
+        return customerRepository.findAll(pageable).map(CustomerResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)

@@ -7,10 +7,10 @@ import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -19,10 +19,9 @@ public class ProfessionalService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public List<ProfessionalResponse> findByStatus(ApprovalStatus status) {
-        return userRepository.findByRoleAndApprovalStatus(Role.PROFESSIONAL, status).stream()
-                .map(ProfessionalResponse::fromEntity)
-                .toList();
+    public Page<ProfessionalResponse> findByStatus(ApprovalStatus status, Pageable pageable) {
+        return userRepository.findByRoleAndApprovalStatus(Role.PROFESSIONAL, status, pageable)
+                .map(ProfessionalResponse::fromEntity);
     }
 
     @Transactional

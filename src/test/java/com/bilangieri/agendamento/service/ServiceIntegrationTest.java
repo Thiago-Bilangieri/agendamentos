@@ -19,19 +19,19 @@ class ServiceIntegrationTest extends IntegrationTest {
     void customerSeesOnlyTheAvailableCatalog() throws Exception {
         mockMvc.perform(get("/api/services").header("Authorization", bearer(JOAO)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].active", everyItem(is(true))))
-                .andExpect(jsonPath("$[*].name", not(hasItem("Pintura de Barba"))))
-                .andExpect(jsonPath("$[*].name", not(hasItem("Massagem Relaxante"))))
-                .andExpect(jsonPath("$[*].name", not(hasItem("Treino Personalizado"))));
+                .andExpect(jsonPath("$.content[*].active", everyItem(is(true))))
+                .andExpect(jsonPath("$.content[*].name", not(hasItem("Pintura de Barba"))))
+                .andExpect(jsonPath("$.content[*].name", not(hasItem("Massagem Relaxante"))))
+                .andExpect(jsonPath("$.content[*].name", not(hasItem("Treino Personalizado"))));
     }
 
     @Test
     void professionalSeesOnlyOwnServicesIncludingInactive() throws Exception {
         mockMvc.perform(get("/api/services").header("Authorization", bearer(BRUNO)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(4)))
-                .andExpect(jsonPath("$[*].professionalName", everyItem(is("Bruno Matos"))))
-                .andExpect(jsonPath("$[*].name", hasItem("Pintura de Barba")));
+                .andExpect(jsonPath("$.content", hasSize(4)))
+                .andExpect(jsonPath("$.content[*].professionalName", everyItem(is("Bruno Matos"))))
+                .andExpect(jsonPath("$.content[*].name", hasItem("Pintura de Barba")));
     }
 
     @Test
@@ -40,11 +40,11 @@ class ServiceIntegrationTest extends IntegrationTest {
 
         mockMvc.perform(get("/api/services").param("professionalId", brunoId.toString())
                         .header("Authorization", bearer(JOAO)))
-                .andExpect(jsonPath("$", hasSize(3)));
+                .andExpect(jsonPath("$.content", hasSize(3)));
 
         mockMvc.perform(get("/api/services").param("professionalId", brunoId.toString())
                         .header("Authorization", bearer(ADMIN)))
-                .andExpect(jsonPath("$", hasSize(4)));
+                .andExpect(jsonPath("$.content", hasSize(4)));
     }
 
     @Test
@@ -52,7 +52,7 @@ class ServiceIntegrationTest extends IntegrationTest {
         mockMvc.perform(get("/api/services").param("professionalId", user(DIOGO_PENDING).getId().toString())
                         .header("Authorization", bearer(JOAO)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+                .andExpect(jsonPath("$.content", hasSize(0)));
     }
 
     @Test

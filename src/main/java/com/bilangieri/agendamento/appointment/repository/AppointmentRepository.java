@@ -1,6 +1,8 @@
 package com.bilangieri.agendamento.appointment.repository;
 
 import com.bilangieri.agendamento.appointment.entity.Appointment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +14,9 @@ import java.util.List;
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    List<Appointment> findByCustomerId(Long customerId);
+    Page<Appointment> findByCustomerId(Long customerId, Pageable pageable);
+
+    Page<Appointment> findByProfessionalId(Long professionalId, Pageable pageable);
 
     List<Appointment> findByProfessionalId(Long professionalId);
 

@@ -4,10 +4,12 @@ import com.bilangieri.agendamento.professional.dto.ProfessionalResponse;
 import com.bilangieri.agendamento.professional.service.ProfessionalService;
 import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/professionals")
@@ -17,10 +19,10 @@ public class ProfessionalAdminController {
     private final ProfessionalService professionalService;
 
     @GetMapping
-    public ResponseEntity<List<ProfessionalResponse>> findByStatus(
-            @RequestParam(defaultValue = "PENDING") ApprovalStatus status) {
-        List<ProfessionalResponse> responses = professionalService.findByStatus(status);
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<Page<ProfessionalResponse>> findByStatus(
+            @RequestParam(defaultValue = "PENDING") ApprovalStatus status,
+            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(professionalService.findByStatus(status, pageable));
     }
 
     @PatchMapping("/{id}/approve")

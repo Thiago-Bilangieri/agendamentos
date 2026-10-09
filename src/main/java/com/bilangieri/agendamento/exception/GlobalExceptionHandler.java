@@ -1,6 +1,7 @@
 package com.bilangieri.agendamento.exception;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,6 +56,17 @@ public class GlobalExceptionHandler {
         body.put("error", "Conflict");
         body.put("message", "A operação viola a integridade dos dados (registo em uso ou duplicado).");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    // ?sort= com um campo que não existe na entidade
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<Map<String, Object>> handlePropertyReferenceException(PropertyReferenceException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("error", "Invalid Sort");
+        body.put("message", "Não é possível ordenar por '" + ex.getPropertyName() + "'.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

@@ -19,6 +19,8 @@ import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -96,19 +98,17 @@ public class AppointmentService {
 
     // CUSTOMER vê os seus agendamentos, PROFESSIONAL os que recebeu, ADMIN todos
     @Transactional(readOnly = true)
-    public List<AppointmentResponse> findAll() {
-        List<Appointment> appointments;
+    public Page<AppointmentResponse> findAll(Pageable pageable) {
+        Page<Appointment> appointments;
         if (currentUserService.hasRole(Role.CUSTOMER)) {
-            appointments = appointmentRepository.findByCustomerId(currentCustomer().orElseThrow().getId());
+            appointments = appointmentRepository.findByCustomerId(currentCustomer().orElseThrow().getId(), pageable);
         } else if (currentUserService.hasRole(Role.PROFESSIONAL)) {
-            appointments = appointmentRepository.findByProfessionalId(currentUserService.getUser().getId());
+            appointments = appointmentRepository.findByProfessionalId(currentUserService.getUser().getId(), pageable);
         } else {
-            appointments = appointmentRepository.findAll();
+            appointments = appointmentRepository.findAll(pageable);
         }
 
-        return appointments.stream()
-                .map(AppointmentResponse::fromEntity)
-                .toList();
+        return appointments.map(AppointmentResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)

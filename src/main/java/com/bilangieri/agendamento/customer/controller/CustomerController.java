@@ -6,12 +6,14 @@ import com.bilangieri.agendamento.customer.dto.CustomerUpdateRequest;
 import com.bilangieri.agendamento.customer.service.CustomerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -27,9 +29,9 @@ public class CustomerController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CustomerResponse>> findAll() {
-        List<CustomerResponse> responses = customerService.findAll();
-        return ResponseEntity.ok(responses);
+    public ResponseEntity<Page<CustomerResponse>> findAll(
+            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(customerService.findAll(pageable));
     }
 
     @GetMapping("/me")
