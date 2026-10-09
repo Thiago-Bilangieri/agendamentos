@@ -18,6 +18,8 @@ spring:
     hibernate:
       # Como vamos usar Flyway, o Hibernate apenas valida, não cria tabelas
       ddl-auto: validate
+    # A sessão JPA fecha no fim de cada método @Transactional; os DTOs são montados dentro dos services
+    open-in-view: false
 
   flyway:
     enabled: true
