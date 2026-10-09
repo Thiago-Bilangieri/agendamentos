@@ -5,11 +5,13 @@ import com.bilangieri.agendamento.appointment.entity.Appointment;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
 import com.bilangieri.agendamento.service.entity.Service;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
@@ -74,6 +76,19 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
         book(MARIA, customer(MARIA).getId(), service(BRUNO, "Barba").getId(), nextYearAt(10, 0))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void databaseRejectsOverlappingAppointmentsEvenWithoutTheServiceCheck() {
+        Service corte = service(ANA, "Corte Feminino");
+        saveAppointment(customer(JOAO), corte, nextYearAt(10, 0), AppointmentStatus.SCHEDULED);
+
+        // Grava diretamente pelo repositório, sem passar pela validação do AppointmentService
+        assertThatThrownBy(() -> {
+            saveAppointment(customer(MARIA), corte, nextYearAt(10, 30), AppointmentStatus.SCHEDULED);
+            appointmentRepository.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("appointments_no_overlap");
     }
 
     @Test

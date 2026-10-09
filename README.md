@@ -103,7 +103,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
    - O prestador do agendamento é sempre o dono do serviço escolhido.
    - `startAt` tem de ser no futuro. O `endAt` é calculado automaticamente (`startAt + duração do serviço`).
    - Não é possível agendar um serviço inativo ou de um prestador indisponível.
-   - **Conflitos de horário**: é rejeitado qualquer agendamento que se sobreponha a outro do mesmo prestador (exceto os `CANCELLED`). A mesma validação é aplicada no reagendamento.
+   - **Conflitos de horário**: é rejeitado qualquer agendamento que se sobreponha a outro do mesmo prestador (exceto os `CANCELLED`). A mesma validação é aplicada no reagendamento. A regra é garantida também com pedidos simultâneos: as marcações do mesmo prestador são serializadas (`SELECT ... FOR UPDATE`) e uma *exclusion constraint* do PostgreSQL (`appointments_no_overlap`, migração V7) impede sobreposições ao nível da base de dados.
 4. **Estados do agendamento**:
 
    | De | Pode passar a |
@@ -161,7 +161,7 @@ Requer o Docker em execução: os testes de integração arrancam um PostgreSQL 
 | Tipo | Classes | O que cobre |
 |---|---|---|
 | Unitários | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Transições de estado, cálculo do `endAt`, conflitos de horário, disponibilidade do serviço |
-| Integração | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest` (MockMvc) | Login e registo, `401`/`403` por perfil, visibilidade do catálogo, propriedade dos dados, conflitos e regras de estado ponta a ponta |
+| Integração | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest`, `AppointmentConcurrencyIntegrationTest` (MockMvc) | Login e registo, `401`/`403` por perfil, visibilidade do catálogo, propriedade dos dados, conflitos e regras de estado ponta a ponta, marcações simultâneas no mesmo horário |
 
 ### Documentação da API (Swagger)
 
@@ -320,6 +320,8 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 
 > 🔐 Se alguma variável obrigatória faltar, a aplicação **não arranca**, em vez de correr com valores inseguros. A chave JWT presente em `application-dev.yml` é pública e serve apenas para desenvolvimento. Os dados de teste (`db/testdata`) só são carregados no perfil `dev`.
 
+> 🗄️ A migração V7 cria a extensão `btree_gist`. No PostgreSQL 13+ ela é *trusted*, por isso basta o utilizador da aplicação ser dono da base de dados; em versões anteriores, crie-a uma vez com um superutilizador.
+
 ### Próximos passos
 
 - [x] Testes unitários e de integração (Testcontainers) para as regras de agendamento
@@ -423,7 +425,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
    - The appointment's provider is always the owner of the chosen service.
    - `startAt` must be in the future. `endAt` is computed automatically (`startAt + service duration`).
    - Inactive services and unavailable providers cannot be booked.
-   - **Time conflicts**: any booking that overlaps another appointment of the same provider (except `CANCELLED` ones) is rejected. The same check applies when rescheduling.
+   - **Time conflicts**: any booking that overlaps another appointment of the same provider (except `CANCELLED` ones) is rejected. The same check applies when rescheduling. The rule also holds under concurrent requests: bookings for the same provider are serialised (`SELECT ... FOR UPDATE`) and a PostgreSQL *exclusion constraint* (`appointments_no_overlap`, migration V7) prevents overlaps at the database level.
 4. **Appointment lifecycle**:
 
    | From | Can become |
@@ -481,7 +483,7 @@ Requires Docker to be running: integration tests start a throwaway PostgreSQL wi
 | Type | Classes | Covers |
 |---|---|---|
 | Unit | `AppointmentStatusTest`, `AppointmentServiceTest` (Mockito) | Status transitions, `endAt` calculation, time conflicts, service availability |
-| Integration | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest` (MockMvc) | Login and sign-up, `401`/`403` per role, catalogue visibility, data ownership, conflicts and status rules end to end |
+| Integration | `AuthIntegrationTest`, `ServiceIntegrationTest`, `AppointmentIntegrationTest`, `CustomerIntegrationTest`, `AppointmentConcurrencyIntegrationTest` (MockMvc) | Login and sign-up, `401`/`403` per role, catalogue visibility, data ownership, conflicts and status rules end to end, simultaneous bookings for the same slot |
 
 ### API documentation (Swagger)
 
@@ -641,6 +643,8 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 ```
 
 > 🔐 If any required variable is missing, the application **refuses to start** instead of running with insecure values. The JWT key in `application-dev.yml` is public and meant for development only. Test data (`db/testdata`) is only loaded under the `dev` profile.
+
+> 🗄️ Migration V7 creates the `btree_gist` extension. On PostgreSQL 13+ it is *trusted*, so the application user only needs to own the database; on older versions, create it once as a superuser.
 
 ### Roadmap
 

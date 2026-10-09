@@ -16,7 +16,9 @@ import com.bilangieri.agendamento.service.repository.ServiceRepository;
 import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
+import com.bilangieri.agendamento.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +30,12 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AppointmentService {
 
+    private static final String OVERLAP_CONSTRAINT = "appointments_no_overlap";
+
     private final AppointmentRepository appointmentRepository;
     private final CustomerRepository customerRepository;
     private final ServiceRepository serviceRepository;
+    private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
 
     @Transactional
@@ -62,7 +67,9 @@ public class AppointmentService {
         LocalDateTime startAt = request.startAt();
         LocalDateTime endAt = startAt.plusMinutes(service.getDurationMinutes());
 
-        // 5. Validar regra de negócio de conflito de horários para o profissional
+        // 5. Validar regra de negócio de conflito de horários para o profissional.
+        // O bloqueio faz pedidos simultâneos para o mesmo prestador esperarem uns pelos outros
+        userRepository.lockById(professional.getId());
         List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
                 professional.getId(), startAt, endAt
         );
@@ -82,7 +89,8 @@ public class AppointmentService {
                 .notes(request.notes())
                 .build();
 
-        Appointment savedAppointment = appointmentRepository.save(appointment);
+        Appointment savedAppointment = saveCheckingOverlap(appointment,
+                "O profissional já possui um agendamento conflituoso neste intervalo de horários.");
         return AppointmentResponse.fromEntity(savedAppointment);
     }
 
@@ -129,6 +137,7 @@ public class AppointmentService {
         }
 
         // Validar conflitos ignorando o próprio agendamento atual
+        userRepository.lockById(appointment.getProfessional().getId());
         List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
                 appointment.getProfessional().getId(), startAt, endAt
         );
@@ -143,7 +152,8 @@ public class AppointmentService {
         appointment.setStatus(request.status());
         appointment.setNotes(request.notes());
 
-        Appointment updated = appointmentRepository.save(appointment);
+        Appointment updated = saveCheckingOverlap(appointment,
+                "O profissional já possui um agendamento conflituoso neste novo horário.");
         return AppointmentResponse.fromEntity(updated);
     }
 
@@ -157,6 +167,21 @@ public class AppointmentService {
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
         return AppointmentResponse.fromEntity(updated);
+    }
+
+    // O bloqueio do prestador serializa as marcações feitas por este serviço; a restrição
+    // appointments_no_overlap (V7) é a rede de segurança na base de dados para qualquer outra escrita.
+    // O flush imediato permite traduzir a violação para a mesma resposta do conflito normal.
+    private Appointment saveCheckingOverlap(Appointment appointment, String conflictMessage) {
+        try {
+            return appointmentRepository.saveAndFlush(appointment);
+        } catch (DataIntegrityViolationException ex) {
+            String cause = ex.getMostSpecificCause().getMessage();
+            if (cause != null && cause.contains(OVERLAP_CONSTRAINT)) {
+                throw new BusinessException(conflictMessage);
+            }
+            throw ex;
+        }
     }
 
     private void validateTransition(AppointmentStatus current, AppointmentStatus target, LocalDateTime startAt) {

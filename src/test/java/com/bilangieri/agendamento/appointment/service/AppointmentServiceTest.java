@@ -14,12 +14,14 @@ import com.bilangieri.agendamento.service.repository.ServiceRepository;
 import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
+import com.bilangieri.agendamento.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
@@ -42,6 +44,9 @@ class AppointmentServiceTest {
 
     @Mock
     private ServiceRepository serviceRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private CurrentUserService currentUserService;
@@ -73,7 +78,7 @@ class AppointmentServiceTest {
     void createCalculatesEndFromServiceDurationAndStartsAsScheduled() {
         loggedInAs(Role.ADMIN);
         bookingFixtures();
-        when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         LocalDateTime start = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0);
 
         AppointmentResponse response = appointmentService.create(new AppointmentCreateRequest(1L, 100L, start, null));
@@ -95,7 +100,33 @@ class AppointmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("conflituoso");
 
-        verify(appointmentRepository, never()).save(any());
+        verify(appointmentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createTranslatesDatabaseOverlapViolationIntoConflictError() {
+        loggedInAs(Role.ADMIN);
+        bookingFixtures();
+        // Pedido simultâneo gravou primeiro: a verificação passou, mas a restrição da base de dados trava
+        when(appointmentRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException(
+                "insert failed", new RuntimeException("violates exclusion constraint \"appointments_no_overlap\"")));
+
+        assertThatThrownBy(() -> appointmentService.create(
+                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("conflituoso");
+    }
+
+    @Test
+    void createDoesNotHideOtherDatabaseErrors() {
+        loggedInAs(Role.ADMIN);
+        bookingFixtures();
+        when(appointmentRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException(
+                "insert failed", new RuntimeException("violates foreign key constraint \"fk_appointment_customer\"")));
+
+        assertThatThrownBy(() -> appointmentService.create(
+                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
