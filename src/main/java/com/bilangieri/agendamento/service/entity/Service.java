@@ -1,5 +1,6 @@
 package com.bilangieri.agendamento.service.entity;
 
+import com.bilangieri.agendamento.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -24,6 +25,11 @@ public class Service {
 
     @Column(nullable = false)
     private String name;
+
+    // Prestador que oferece este serviço
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "professional_id", nullable = false)
+    private User professional;
 
     @Column(columnDefinition = "TEXT")
     private String description;

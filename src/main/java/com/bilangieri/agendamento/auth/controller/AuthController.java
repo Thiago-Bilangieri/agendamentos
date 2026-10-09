@@ -3,6 +3,7 @@ package com.bilangieri.agendamento.auth.controller;
 
 import com.bilangieri.agendamento.auth.dto.AuthResponse;
 import com.bilangieri.agendamento.auth.dto.LoginRequest;
+import com.bilangieri.agendamento.auth.dto.ProfessionalRegisterRequest;
 import com.bilangieri.agendamento.auth.dto.RegisterRequest;
 import com.bilangieri.agendamento.auth.service.AuthService;
 import jakarta.validation.Valid;
@@ -30,6 +31,15 @@ public class AuthController {
         authService.register(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/register/professional")
+    public ResponseEntity<Void> registerProfessional(
+            @Valid @RequestBody ProfessionalRegisterRequest request
+    ) {
+        authService.registerProfessional(request);
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
     @PostMapping("/login")

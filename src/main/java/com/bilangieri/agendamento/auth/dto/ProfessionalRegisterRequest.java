@@ -3,8 +3,8 @@ package com.bilangieri.agendamento.auth.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
-// Registo de cliente (CUSTOMER)
-public record RegisterRequest(
+// Registo de prestador de serviços (PROFESSIONAL), sujeito a aprovação do ADMIN
+public record ProfessionalRegisterRequest(
         @NotBlank(message = "O nome é obrigatório")
         String name,
 
@@ -13,10 +13,7 @@ public record RegisterRequest(
         String email,
 
         @NotBlank(message = "A password é obrigatória")
-        String password,
-
-        @NotBlank(message = "O telefone é obrigatório")
-        String phone
+        String password
 
 ) {
 }

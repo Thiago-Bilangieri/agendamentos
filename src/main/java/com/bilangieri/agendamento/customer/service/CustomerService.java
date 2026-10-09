@@ -51,6 +51,13 @@ public class CustomerService {
         return CustomerResponse.fromEntity(customer);
     }
 
+    @Transactional(readOnly = true)
+    public CustomerResponse findByUserEmail(String email) {
+        Customer customer = customerRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NotFoundException("Cliente não encontrado com o email: " + email));
+        return CustomerResponse.fromEntity(customer);
+    }
+
     @Transactional
     public CustomerResponse update(Long id, CustomerUpdateRequest request) {
         Customer customer = customerRepository.findById(id)

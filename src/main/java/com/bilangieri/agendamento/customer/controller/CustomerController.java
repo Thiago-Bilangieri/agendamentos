@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +30,12 @@ public class CustomerController {
     public ResponseEntity<List<CustomerResponse>> findAll() {
         List<CustomerResponse> responses = customerService.findAll();
         return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<CustomerResponse> findMe(Authentication authentication) {
+        CustomerResponse response = customerService.findByUserEmail(authentication.getName());
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")

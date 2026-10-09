@@ -38,6 +38,12 @@ public class User {
     @Builder.Default
     private Boolean active = true;
 
+    // Prestadores registam-se como PENDING e só podem fazer login depois de aprovados por um ADMIN
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false, length = 50)
+    @Builder.Default
+    private ApprovalStatus approvalStatus = ApprovalStatus.APPROVED;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

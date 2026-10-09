@@ -12,9 +12,6 @@ public record AppointmentCreateRequest(
         @NotNull(message = "O ID do serviço é obrigatório")
         Long serviceId,
 
-        @NotNull(message = "O ID do profissional é obrigatório")
-        Long professionalId,
-
         @NotNull(message = "A data e hora de início são obrigatórias")
         @Future(message = "A data de início deve ser no futuro")
         LocalDateTime startAt,

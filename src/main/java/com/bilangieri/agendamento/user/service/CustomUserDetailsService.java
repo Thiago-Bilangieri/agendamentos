@@ -1,6 +1,7 @@
 
 package com.bilangieri.agendamento.user.service;
 
+import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -30,7 +31,8 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .withUsername(user.getEmail())
                 .password(user.getPassword())
                 .roles(user.getRole().name())
-                .disabled(!Boolean.TRUE.equals(user.getActive()))
+                .disabled(!Boolean.TRUE.equals(user.getActive())
+                        || user.getApprovalStatus() != ApprovalStatus.APPROVED)
                 .build();
     }
 }

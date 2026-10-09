@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import jakarta.servlet.DispatcherType;
@@ -48,16 +49,51 @@ public class SecurityConfig {
                         .authenticationEntryPoint(
                                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
                         )
+                        .accessDeniedHandler((request, response, e) ->
+                                response.setStatus(HttpStatus.FORBIDDEN.value())
+                        )
                 )
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(
+                                HttpMethod.POST,
                                 "/api/auth/register",
+                                "/api/auth/register/professional",
                                 "/api/auth/login"
                         ).permitAll()
+
+                        // Administração (aprovação de prestadores)
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+
+                        // Customers
+                        .requestMatchers(HttpMethod.GET, "/api/customers/me")
+                        .hasRole("CUSTOMER")
                         .requestMatchers("/api/customers", "/api/customers/**")
                         .hasRole("ADMIN")
-                        .anyRequest().authenticated()
+
+                        // Services
+                        .requestMatchers(HttpMethod.GET, "/api/services", "/api/services/**")
+                        .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
+                        .requestMatchers("/api/services", "/api/services/**")
+                        .hasAnyRole("ADMIN", "PROFESSIONAL")
+
+                        // Appointments
+                        .requestMatchers(HttpMethod.PATCH, "/api/appointments/*/cancel")
+                        .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/appointments/*/confirm",
+                                "/api/appointments/*/complete"
+                        ).hasAnyRole("ADMIN", "PROFESSIONAL")
+                        .requestMatchers(HttpMethod.POST, "/api/appointments")
+                        .hasAnyRole("ADMIN", "CUSTOMER")
+                        .requestMatchers(HttpMethod.GET, "/api/appointments", "/api/appointments/**")
+                        .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
+                        .requestMatchers("/api/appointments", "/api/appointments/**")
+                        .hasRole("ADMIN")
+
+                        .anyRequest().hasRole("ADMIN")
                 )
                 .addFilterBefore(
                         jwtAuthenticationFilter,

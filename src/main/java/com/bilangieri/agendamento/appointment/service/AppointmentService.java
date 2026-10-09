@@ -10,15 +10,19 @@ import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
 import com.bilangieri.agendamento.exception.NotFoundException;
+import com.bilangieri.agendamento.security.CurrentUserService;
 import com.bilangieri.agendamento.service.entity.Service;
 import com.bilangieri.agendamento.service.repository.ServiceRepository;
+import com.bilangieri.agendamento.user.entity.ApprovalStatus;
+import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
-import com.bilangieri.agendamento.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
@@ -27,7 +31,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final CustomerRepository customerRepository;
     private final ServiceRepository serviceRepository;
-    private final UserRepository userRepository;
+    private final CurrentUserService currentUserService;
 
     @Transactional
     public AppointmentResponse create(AppointmentCreateRequest request) {
@@ -35,13 +39,24 @@ public class AppointmentService {
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new NotFoundException("Cliente não encontrado com o ID: " + request.customerId()));
 
+        // Um CUSTOMER só pode criar agendamentos para si próprio
+        currentCustomer().ifPresent(current -> {
+            if (!current.getId().equals(customer.getId())) {
+                throw new AccessDeniedException("Não pode criar agendamentos para outro cliente.");
+            }
+        });
+
         // 2. Buscar e validar se o serviço existe
         Service service = serviceRepository.findById(request.serviceId())
                 .orElseThrow(() -> new NotFoundException("Serviço não encontrado com o ID: " + request.serviceId()));
 
-        // 3. Buscar e validar se o profissional existe
-        User professional = userRepository.findById(request.professionalId())
-                .orElseThrow(() -> new NotFoundException("Profissional não encontrado com o ID: " + request.professionalId()));
+        // 3. O profissional é o prestador dono do serviço, e tem de estar disponível
+        User professional = service.getProfessional();
+        if (!Boolean.TRUE.equals(service.getActive())
+                || !Boolean.TRUE.equals(professional.getActive())
+                || professional.getApprovalStatus() != ApprovalStatus.APPROVED) {
+            throw new BusinessException("Este serviço não está disponível para agendamento.");
+        }
 
         // 4. Calcular o endAt com base na duração do serviço em minutos
         LocalDateTime startAt = request.startAt();
@@ -71,9 +86,19 @@ public class AppointmentService {
         return AppointmentResponse.fromEntity(savedAppointment);
     }
 
+    // CUSTOMER vê os seus agendamentos, PROFESSIONAL os que recebeu, ADMIN todos
     @Transactional(readOnly = true)
     public List<AppointmentResponse> findAll() {
-        return appointmentRepository.findAll().stream()
+        List<Appointment> appointments;
+        if (currentUserService.hasRole(Role.CUSTOMER)) {
+            appointments = appointmentRepository.findByCustomerId(currentCustomer().orElseThrow().getId());
+        } else if (currentUserService.hasRole(Role.PROFESSIONAL)) {
+            appointments = appointmentRepository.findByProfessionalId(currentUserService.getUser().getId());
+        } else {
+            appointments = appointmentRepository.findAll();
+        }
+
+        return appointments.stream()
                 .map(AppointmentResponse::fromEntity)
                 .toList();
     }
@@ -82,6 +107,7 @@ public class AppointmentService {
     public AppointmentResponse findById(Long id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
+        checkOwnership(appointment);
         return AppointmentResponse.fromEntity(appointment);
     }
 
@@ -89,6 +115,7 @@ public class AppointmentService {
     public AppointmentResponse update(Long id, AppointmentUpdateRequest request) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
+        checkOwnership(appointment);
 
         LocalDateTime startAt = request.startAt();
         LocalDateTime endAt = startAt.plusMinutes(appointment.getService().getDurationMinutes());
@@ -116,9 +143,35 @@ public class AppointmentService {
     public AppointmentResponse updateStatus(Long id, AppointmentStatus status) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
+        checkOwnership(appointment);
 
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
         return AppointmentResponse.fromEntity(updated);
+    }
+
+    // Devolve o Customer ligado ao utilizador autenticado se este tiver a role CUSTOMER
+    private Optional<Customer> currentCustomer() {
+        if (!currentUserService.hasRole(Role.CUSTOMER)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(customerRepository.findByUserEmail(currentUserService.getEmail())
+                .orElseThrow(() -> new AccessDeniedException("Utilizador sem cliente associado.")));
+    }
+
+    private void checkOwnership(Appointment appointment) {
+        boolean allowed;
+        if (currentUserService.hasRole(Role.CUSTOMER)) {
+            allowed = appointment.getCustomer().getId().equals(currentCustomer().orElseThrow().getId());
+        } else if (currentUserService.hasRole(Role.PROFESSIONAL)) {
+            allowed = appointment.getProfessional().getEmail().equals(currentUserService.getEmail());
+        } else {
+            allowed = currentUserService.hasRole(Role.ADMIN);
+        }
+
+        if (!allowed) {
+            throw new AccessDeniedException("Não tem acesso a este agendamento.");
+        }
     }
 }

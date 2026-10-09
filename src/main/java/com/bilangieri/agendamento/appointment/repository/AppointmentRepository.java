@@ -12,6 +12,10 @@ import java.util.List;
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
+    List<Appointment> findByCustomerId(Long customerId);
+
+    List<Appointment> findByProfessionalId(Long professionalId);
+
     // Query customizada para verificar conflitos de horário para o mesmo profissional.
     // O conflito ocorre se já existir um agendamento para o mesmo profissional onde:
     // O início do agendamento existente é anterior ao fim do novo E o fim do existente é posterior ao início do novo.

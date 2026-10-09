@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 
 public record ServiceResponse(
         Long id,
+        Long professionalId,
+        String professionalName,
         String name,
         String description,
         BigDecimal price,
@@ -17,6 +19,8 @@ public record ServiceResponse(
     public static ServiceResponse fromEntity(Service service) {
         return new ServiceResponse(
                 service.getId(),
+                service.getProfessional().getId(),
+                service.getProfessional().getName(),
                 service.getName(),
                 service.getDescription(),
                 service.getPrice(),

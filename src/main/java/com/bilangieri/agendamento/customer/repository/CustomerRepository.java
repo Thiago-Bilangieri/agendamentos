@@ -12,4 +12,6 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     // O Spring Data JPA lê o nome deste método e cria a query automaticamente:
     // SELECT * FROM customers WHERE email = ?;
     Optional<Customer> findByEmail(String email);
+
+    Optional<Customer> findByUserEmail(String email);
 }

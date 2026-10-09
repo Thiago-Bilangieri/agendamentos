@@ -1,5 +1,6 @@
 package com.bilangieri.agendamento.customer.entity;
 
+import com.bilangieri.agendamento.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -32,6 +33,11 @@ public class Customer {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    // Conta de utilizador do cliente (null para clientes criados pelo ADMIN sem conta)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true)
+    private User user;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

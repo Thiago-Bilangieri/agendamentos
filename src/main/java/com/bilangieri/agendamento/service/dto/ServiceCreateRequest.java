@@ -19,6 +19,9 @@ public record ServiceCreateRequest(
 
         @NotNull(message = "A duração em minutos é obrigatória")
         @Min(value = 5, message = "A duração mínima deve ser de 5 minutos")
-        Integer durationMinutes
+        Integer durationMinutes,
+
+        // Só usado pelo ADMIN; para um PROFESSIONAL o serviço fica sempre associado a ele próprio
+        Long professionalId
 ) {
 }
