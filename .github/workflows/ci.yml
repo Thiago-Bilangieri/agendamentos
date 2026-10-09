@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v5
@@ -18,6 +20,15 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+
+      # Pulls autenticados: evita o limite de pulls anónimos do Docker Hub nos runners partilhados.
+      # Os pulls do Testcontainers e do docker build usam as credenciais gravadas por este passo.
+      - name: Login no Docker Hub
+        if: env.DOCKERHUB_TOKEN != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Unitários e de integração; os de integração usam Testcontainers com o Docker do runner
       - name: Testes
