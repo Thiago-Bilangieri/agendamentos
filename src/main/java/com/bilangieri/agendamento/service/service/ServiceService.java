@@ -46,16 +46,21 @@ public class ServiceService {
         return ServiceResponse.fromEntity(savedService);
     }
 
-    // CUSTOMER vê o catálogo disponível, PROFESSIONAL vê os seus serviços, ADMIN vê todos
+    // CUSTOMER vê o catálogo disponível, PROFESSIONAL vê os seus serviços, ADMIN vê todos.
+    // professionalId (opcional) filtra por prestador; para o PROFESSIONAL é ignorado.
     @Transactional(readOnly = true)
-    public List<ServiceResponse> findAll() {
+    public List<ServiceResponse> findAll(Long professionalId) {
         List<Service> services;
         if (currentUserService.hasRole(Role.ADMIN)) {
-            services = serviceRepository.findAll();
+            services = professionalId == null
+                    ? serviceRepository.findAll()
+                    : serviceRepository.findByProfessionalId(professionalId);
         } else if (currentUserService.hasRole(Role.PROFESSIONAL)) {
             services = serviceRepository.findByProfessionalId(currentUserService.getUser().getId());
         } else {
-            services = serviceRepository.findAvailable();
+            services = professionalId == null
+                    ? serviceRepository.findAvailable()
+                    : serviceRepository.findAvailableByProfessionalId(professionalId);
         }
 
         return services.stream()

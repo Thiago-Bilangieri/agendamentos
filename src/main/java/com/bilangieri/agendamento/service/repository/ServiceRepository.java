@@ -3,6 +3,7 @@ package com.bilangieri.agendamento.service.repository;
 import com.bilangieri.agendamento.service.entity.Service;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,4 +25,14 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
         AND s.professional.approvalStatus = com.bilangieri.agendamento.user.entity.ApprovalStatus.APPROVED
     """)
     List<Service> findAvailable();
+
+    // Catálogo de um prestador específico, com as mesmas regras de visibilidade de findAvailable
+    @Query("""
+        SELECT s FROM Service s
+        WHERE s.active = true
+        AND s.professional.id = :professionalId
+        AND s.professional.active = true
+        AND s.professional.approvalStatus = com.bilangieri.agendamento.user.entity.ApprovalStatus.APPROVED
+    """)
+    List<Service> findAvailableByProfessionalId(@Param("professionalId") Long professionalId);
 }

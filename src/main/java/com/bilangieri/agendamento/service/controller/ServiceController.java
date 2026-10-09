@@ -26,8 +26,9 @@ public class ServiceController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ServiceResponse>> findAll() {
-        List<ServiceResponse> responses = serviceService.findAll();
+    public ResponseEntity<List<ServiceResponse>> findAll(
+            @RequestParam(required = false) Long professionalId) {
+        List<ServiceResponse> responses = serviceService.findAll(professionalId);
         return ResponseEntity.ok(responses);
     }
 
