@@ -7,6 +7,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
 ![JWT](https://img.shields.io/badge/Auth-JWT-black?logo=jsonwebtokens)
 ![OpenAPI](https://img.shields.io/badge/Docs-OpenAPI%20%2F%20Swagger-85EA2D?logo=swagger&logoColor=black)
+[![CI](https://github.com/Thiago-Bilangieri/agendamentos/actions/workflows/ci.yml/badge.svg)](https://github.com/Thiago-Bilangieri/agendamentos/actions/workflows/ci.yml)
 
 ---
 
@@ -45,7 +46,7 @@ API REST para **agendamento de serviços** entre clientes e prestadores (cabelei
 | Migrações | Flyway |
 | Autenticação | JWT ([jjwt](https://github.com/jwtk/jjwt) 0.12) + BCrypt |
 | Documentação | springdoc-openapi 3 (OpenAPI 3.1 + Swagger UI) |
-| Infraestrutura | Docker / Docker Compose |
+| Infraestrutura | Docker / Docker Compose, GitHub Actions (CI) |
 | Build / utilitários | Maven (wrapper incluído), Lombok |
 
 ### Arquitetura
@@ -161,6 +162,14 @@ mvnw.cmd spring-boot:run
 ```
 
 A API fica disponível em **http://localhost:8080**. Ao arrancar, o Flyway cria as tabelas e carrega os dados de teste.
+
+**Alternativa sem Java instalado:** sobe a base de dados e a API em contentores, com os dados de teste.
+
+```bash
+docker compose --profile app up --build
+```
+
+A porta pode ser mudada com `APP_PORT` (ex.: `APP_PORT=8090 docker compose --profile app up`). Sem `--profile app`, o compose sobe só a base de dados, como no passo 2.
 
 #### 4. Executar os testes
 
@@ -338,6 +347,19 @@ Nos erros de validação, `errors` indica o problema de cada campo:
 | `409` | Conflito com o estado dos dados (ex.: remover um registo com agendamentos) |
 | `500` | Erro inesperado: a resposta tem uma mensagem genérica e o detalhe fica apenas no log |
 
+### Docker e integração contínua
+
+- **`Dockerfile`** multi-stage: compila com o JDK 21 e corre só com o JRE, como utilizador sem privilégios, com o jar separado em camadas (dependências / código) para builds mais rápidos.
+- **GitHub Actions** (`.github/workflows/ci.yml`): a cada push e pull request para a `main`, corre todos os testes (os de integração usam Testcontainers no Docker do runner) e constrói a imagem.
+
+Para produção, use a imagem com o perfil `prod` e as variáveis de ambiente descritas abaixo:
+
+```bash
+docker build -t agendamento .
+docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=prod -e DB_URL=... -e DB_USERNAME=... -e DB_PASSWORD=... \
+  -e JWT_SECRET=... -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... agendamento
+```
+
 ### Configuração
 
 A configuração está separada por perfis do Spring:
@@ -378,7 +400,7 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 - [x] Categorias de serviços e pesquisa por tipo de serviço
 - [x] Horário de funcionamento e disponibilidade por prestador
 - [x] Paginação e ordenação nas listagens
-- [ ] Dockerfile da aplicação e pipeline de CI
+- [x] Dockerfile da aplicação e pipeline de CI
 
 ---
 
@@ -417,7 +439,7 @@ REST API for **service scheduling** between customers and service providers (hai
 | Migrations | Flyway |
 | Authentication | JWT ([jjwt](https://github.com/jwtk/jjwt) 0.12) + BCrypt |
 | Documentation | springdoc-openapi 3 (OpenAPI 3.1 + Swagger UI) |
-| Infrastructure | Docker / Docker Compose |
+| Infrastructure | Docker / Docker Compose, GitHub Actions (CI) |
 | Build / tooling | Maven (wrapper included), Lombok |
 
 ### Architecture
@@ -533,6 +555,14 @@ mvnw.cmd spring-boot:run
 ```
 
 The API is available at **http://localhost:8080**. On startup, Flyway creates the tables and loads the test data.
+
+**Alternative without Java installed:** runs the database and the API in containers, with the test data.
+
+```bash
+docker compose --profile app up --build
+```
+
+The port can be changed with `APP_PORT` (e.g. `APP_PORT=8090 docker compose --profile app up`). Without `--profile app`, compose only starts the database, as in step 2.
 
 #### 4. Run the tests
 
@@ -712,6 +742,19 @@ Validation errors list each field's problem in `errors`:
 
 > API messages are returned in Portuguese.
 
+### Docker and continuous integration
+
+- **Multi-stage `Dockerfile`**: builds with JDK 21 and runs on the JRE only, as an unprivileged user, with the jar split into layers (dependencies / code) for faster builds.
+- **GitHub Actions** (`.github/workflows/ci.yml`): on every push and pull request to `main`, runs the whole test suite (integration tests use Testcontainers on the runner's Docker) and builds the image.
+
+For production, run the image with the `prod` profile and the environment variables described below:
+
+```bash
+docker build -t agendamento .
+docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=prod -e DB_URL=... -e DB_USERNAME=... -e DB_PASSWORD=... \
+  -e JWT_SECRET=... -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... agendamento
+```
+
 ### Configuration
 
 Configuration is split by Spring profile:
@@ -752,7 +795,7 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 - [x] Service categories and search by service type
 - [x] Provider working hours and availability
 - [x] Pagination and sorting on list endpoints
-- [ ] Application Dockerfile and CI pipeline
+- [x] Application Dockerfile and CI pipeline
 
 ---
 

@@ -10,6 +10,26 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d agendamentodb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Opcional: a API em contentor, para experimentar sem instalar Java.
+  #   docker compose --profile app up --build
+  # Corre com o perfil dev (dados de teste incluídos). Não é uma configuração de produção.
+  app:
+    build: .
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agendamentodb
+    ports:
+      - "${APP_PORT:-8080}:8080"
 
 volumes:
   pgdata:
