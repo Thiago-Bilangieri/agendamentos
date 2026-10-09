@@ -61,6 +61,11 @@ public class SecurityConfig {
                                 "/api/auth/register/professional",
                                 "/api/auth/login"
                         ).permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
 
                         // Administração (aprovação de prestadores)
                         .requestMatchers("/api/admin/**")
