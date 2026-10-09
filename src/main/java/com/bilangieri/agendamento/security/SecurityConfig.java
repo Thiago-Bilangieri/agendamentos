@@ -77,7 +77,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/customers", "/api/customers/**")
                         .hasRole("ADMIN")
 
-                        // Services
+                        // Categorias: todos consultam, só o ADMIN gere (anyRequest)
+                        .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**")
+                        .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
+
+                        // Horário de trabalho dos prestadores
+                        .requestMatchers(HttpMethod.PUT, "/api/professionals/me/working-hours")
+                        .hasRole("PROFESSIONAL")
+                        .requestMatchers(HttpMethod.GET, "/api/professionals/*/working-hours")
+                        .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
+
+                        // Services (inclui /{id}/availability)
                         .requestMatchers(HttpMethod.GET, "/api/services", "/api/services/**")
                         .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
                         .requestMatchers("/api/services", "/api/services/**")

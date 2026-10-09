@@ -22,6 +22,9 @@ public record ServiceUpdateRequest(
         Integer durationMinutes,
 
         @NotNull(message = "O estado ativo é obrigatório")
-        Boolean active
+        Boolean active,
+
+        // Opcional; null remove a categoria
+        Long categoryId
 ) {
 }

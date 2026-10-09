@@ -1,5 +1,7 @@
 package com.bilangieri.agendamento.service.entity;
 
+import com.bilangieri.agendamento.category.entity.ServiceCategory;
+import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,6 +33,11 @@ public class Service {
     @JoinColumn(name = "professional_id", nullable = false)
     private User professional;
 
+    // Opcional: serviços sem categoria continuam visíveis, só não aparecem no filtro por categoria
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private ServiceCategory category;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -51,4 +58,11 @@ public class Service {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // Faz parte do catálogo: serviço ativo de um prestador ativo e aprovado
+    public boolean isBookable() {
+        return Boolean.TRUE.equals(active)
+                && Boolean.TRUE.equals(professional.getActive())
+                && professional.getApprovalStatus() == ApprovalStatus.APPROVED;
+    }
 }

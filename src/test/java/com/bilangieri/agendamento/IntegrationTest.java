@@ -17,8 +17,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 
 /**
  * Base dos testes de integração: aplicação completa (segurança incluída) sobre um PostgreSQL
@@ -72,9 +74,14 @@ public abstract class IntegrationTest {
         return serviceRepository.findByNameAndProfessionalId(name, user(professionalEmail).getId()).orElseThrow();
     }
 
-    // Data futura sem agendamentos nos dados de teste
+    // Quarta-feira daqui a um ano: sem agendamentos nos dados de teste e dia de trabalho
+    // de todos os prestadores de teste (ver db/testdata)
+    protected LocalDate nextYearWednesday() {
+        return LocalDate.now().plusYears(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
+    }
+
     protected LocalDateTime nextYearAt(int hour, int minute) {
-        return LocalDate.now().plusYears(1).atTime(hour, minute);
+        return nextYearWednesday().atTime(hour, minute);
     }
 
     protected Appointment saveAppointment(Customer customer, Service service, LocalDateTime startAt, AppointmentStatus status) {

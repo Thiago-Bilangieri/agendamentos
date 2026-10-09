@@ -10,10 +10,10 @@ import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
 import com.bilangieri.agendamento.exception.NotFoundException;
+import com.bilangieri.agendamento.professional.service.WorkingHoursService;
 import com.bilangieri.agendamento.security.CurrentUserService;
 import com.bilangieri.agendamento.service.entity.Service;
 import com.bilangieri.agendamento.service.repository.ServiceRepository;
-import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
@@ -38,6 +38,7 @@ public class AppointmentService {
     private final CustomerRepository customerRepository;
     private final ServiceRepository serviceRepository;
     private final UserRepository userRepository;
+    private final WorkingHoursService workingHoursService;
     private final CurrentUserService currentUserService;
 
     @Transactional
@@ -59,15 +60,14 @@ public class AppointmentService {
 
         // 3. O profissional é o prestador dono do serviço, e tem de estar disponível
         User professional = service.getProfessional();
-        if (!Boolean.TRUE.equals(service.getActive())
-                || !Boolean.TRUE.equals(professional.getActive())
-                || professional.getApprovalStatus() != ApprovalStatus.APPROVED) {
+        if (!service.isBookable()) {
             throw new BusinessException("Este serviço não está disponível para agendamento.");
         }
 
         // 4. Calcular o endAt com base na duração do serviço em minutos
         LocalDateTime startAt = request.startAt();
         LocalDateTime endAt = startAt.plusMinutes(service.getDurationMinutes());
+        checkWorkingHours(professional.getId(), startAt, endAt);
 
         // 5. Validar regra de negócio de conflito de horários para o profissional.
         // O bloqueio faz pedidos simultâneos para o mesmo prestador esperarem uns pelos outros
@@ -135,6 +135,7 @@ public class AppointmentService {
         if (request.status() != appointment.getStatus()) {
             validateTransition(appointment.getStatus(), request.status(), startAt);
         }
+        checkWorkingHours(appointment.getProfessional().getId(), startAt, endAt);
 
         // Validar conflitos ignorando o próprio agendamento atual
         userRepository.lockById(appointment.getProfessional().getId());
@@ -181,6 +182,12 @@ public class AppointmentService {
                 throw new BusinessException(conflictMessage);
             }
             throw ex;
+        }
+    }
+
+    private void checkWorkingHours(Long professionalId, LocalDateTime startAt, LocalDateTime endAt) {
+        if (!workingHoursService.isWithinWorkingHours(professionalId, startAt, endAt)) {
+            throw new BusinessException("O horário escolhido está fora do horário de trabalho do prestador.");
         }
     }
 

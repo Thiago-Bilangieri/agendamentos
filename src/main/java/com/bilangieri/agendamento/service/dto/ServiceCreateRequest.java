@@ -22,6 +22,9 @@ public record ServiceCreateRequest(
         Integer durationMinutes,
 
         // Só usado pelo ADMIN; para um PROFESSIONAL o serviço fica sempre associado a ele próprio
-        Long professionalId
+        Long professionalId,
+
+        // Opcional
+        Long categoryId
 ) {
 }

@@ -8,6 +8,7 @@ import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
 import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
+import com.bilangieri.agendamento.professional.service.WorkingHoursService;
 import com.bilangieri.agendamento.security.CurrentUserService;
 import com.bilangieri.agendamento.service.entity.Service;
 import com.bilangieri.agendamento.service.repository.ServiceRepository;
@@ -49,6 +50,9 @@ class AppointmentServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private WorkingHoursService workingHoursService;
+
+    @Mock
     private CurrentUserService currentUserService;
 
     @InjectMocks
@@ -63,6 +67,8 @@ class AppointmentServiceTest {
         professional = User.builder().id(10L).name("Ana").email("ana@test.com").role(Role.PROFESSIONAL).build();
         customer = Customer.builder().id(1L).name("João").email("joao@test.com").build();
         service = Service.builder().id(100L).name("Corte").durationMinutes(45).professional(professional).build();
+        // Por omissão o prestador está a trabalhar; o teste do horário de trabalho muda isto
+        lenient().when(workingHoursService.isWithinWorkingHours(any(), any(), any())).thenReturn(true);
     }
 
     private void loggedInAs(Role role) {
@@ -127,6 +133,20 @@ class AppointmentServiceTest {
         assertThatThrownBy(() -> appointmentService.create(
                 new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void createRejectsTimeOutsideTheProfessionalsWorkingHours() {
+        loggedInAs(Role.ADMIN);
+        bookingFixtures();
+        when(workingHoursService.isWithinWorkingHours(any(), any(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> appointmentService.create(
+                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("fora do horário de trabalho");
+
+        verify(appointmentRepository, never()).saveAndFlush(any());
     }
 
     @Test

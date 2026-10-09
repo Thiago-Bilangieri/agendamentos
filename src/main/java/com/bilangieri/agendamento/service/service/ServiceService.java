@@ -1,24 +1,31 @@
 package com.bilangieri.agendamento.service.service;
 
 import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
+import com.bilangieri.agendamento.category.entity.ServiceCategory;
+import com.bilangieri.agendamento.category.service.CategoryService;
 import com.bilangieri.agendamento.exception.BusinessException;
 import com.bilangieri.agendamento.exception.ConflictException;
 import com.bilangieri.agendamento.exception.NotFoundException;
 import com.bilangieri.agendamento.security.CurrentUserService;
 import com.bilangieri.agendamento.service.dto.ServiceCreateRequest;
+import com.bilangieri.agendamento.service.dto.ServiceFilter;
 import com.bilangieri.agendamento.service.dto.ServiceResponse;
 import com.bilangieri.agendamento.service.dto.ServiceUpdateRequest;
 import com.bilangieri.agendamento.service.entity.Service;
 import com.bilangieri.agendamento.service.repository.ServiceRepository;
-import com.bilangieri.agendamento.user.entity.ApprovalStatus;
+import com.bilangieri.agendamento.service.repository.ServiceSpecifications;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @org.springframework.stereotype.Service // Evita conflito com o nome da classe Service
 @RequiredArgsConstructor
@@ -28,6 +35,7 @@ public class ServiceService {
     private final UserRepository userRepository;
     private final AppointmentRepository appointmentRepository;
     private final CurrentUserService currentUserService;
+    private final CategoryService categoryService;
 
     @Transactional
     public ServiceResponse create(ServiceCreateRequest request) {
@@ -39,6 +47,7 @@ public class ServiceService {
 
         Service service = Service.builder()
                 .professional(professional)
+                .category(resolveCategory(request.categoryId()))
                 .name(request.name())
                 .description(request.description())
                 .price(request.price())
@@ -51,36 +60,48 @@ public class ServiceService {
     }
 
     // CUSTOMER vê o catálogo disponível, PROFESSIONAL vê os seus serviços, ADMIN vê todos.
-    // professionalId (opcional) filtra por prestador; para o PROFESSIONAL é ignorado.
+    // Os filtros combinam-se entre si; para o PROFESSIONAL o professionalId é ignorado.
     @Transactional(readOnly = true)
-    public Page<ServiceResponse> findAll(Long professionalId, Pageable pageable) {
-        Page<Service> services;
-        if (currentUserService.hasRole(Role.ADMIN)) {
-            services = professionalId == null
-                    ? serviceRepository.findAll(pageable)
-                    : serviceRepository.findByProfessionalId(professionalId, pageable);
-        } else if (currentUserService.hasRole(Role.PROFESSIONAL)) {
-            services = serviceRepository.findByProfessionalId(currentUserService.getUser().getId(), pageable);
+    public Page<ServiceResponse> findAll(ServiceFilter filter, Pageable pageable) {
+        List<Specification<Service>> specs = new ArrayList<>();
+
+        if (currentUserService.hasRole(Role.PROFESSIONAL)) {
+            specs.add(ServiceSpecifications.ofProfessional(currentUserService.getUser().getId()));
         } else {
-            services = professionalId == null
-                    ? serviceRepository.findAvailable(pageable)
-                    : serviceRepository.findAvailableByProfessionalId(professionalId, pageable);
+            if (!currentUserService.hasRole(Role.ADMIN)) {
+                specs.add(ServiceSpecifications.bookable());
+            }
+            if (filter.professionalId() != null) {
+                specs.add(ServiceSpecifications.ofProfessional(filter.professionalId()));
+            }
+        }
+        if (filter.categoryId() != null) {
+            specs.add(ServiceSpecifications.inCategory(filter.categoryId()));
+        }
+        if (filter.name() != null && !filter.name().isBlank()) {
+            specs.add(ServiceSpecifications.nameContains(filter.name()));
         }
 
-        return services.map(ServiceResponse::fromEntity);
+        return serviceRepository.findAll(Specification.allOf(specs), pageable)
+                .map(ServiceResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)
     public ServiceResponse findById(Long id) {
+        return ServiceResponse.fromEntity(getVisibleService(id));
+    }
+
+    // Serviços fora do catálogo respondem como inexistentes para quem não os pode ver
+    @Transactional(readOnly = true)
+    public Service getVisibleService(Long id) {
         Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Serviço não encontrado com o ID: " + id));
 
-        // Serviços fora do catálogo respondem como inexistentes para quem não os pode ver
         if (!canView(service)) {
             throw new NotFoundException("Serviço não encontrado com o ID: " + id);
         }
 
-        return ServiceResponse.fromEntity(service);
+        return service;
     }
 
     @Transactional
@@ -101,6 +122,7 @@ public class ServiceService {
         service.setPrice(request.price());
         service.setDurationMinutes(request.durationMinutes());
         service.setActive(request.active());
+        service.setCategory(resolveCategory(request.categoryId()));
 
         Service updatedService = serviceRepository.save(service);
         return ServiceResponse.fromEntity(updatedService);
@@ -134,6 +156,10 @@ public class ServiceService {
                 .orElseThrow(() -> new NotFoundException("Prestador não encontrado com o ID: " + professionalId));
     }
 
+    private ServiceCategory resolveCategory(Long categoryId) {
+        return categoryId == null ? null : categoryService.getCategory(categoryId);
+    }
+
     // ADMIN vê tudo, PROFESSIONAL vê os seus; os restantes só o catálogo disponível
     private boolean canView(Service service) {
         if (currentUserService.hasRole(Role.ADMIN)) {
@@ -145,10 +171,7 @@ public class ServiceService {
             return true;
         }
 
-        User professional = service.getProfessional();
-        return Boolean.TRUE.equals(service.getActive())
-                && Boolean.TRUE.equals(professional.getActive())
-                && professional.getApprovalStatus() == ApprovalStatus.APPROVED;
+        return service.isBookable();
     }
 
     private void checkOwnership(Service service) {
