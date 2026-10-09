@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -16,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -45,13 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
-        System.out.println("Authorization header presente: " + (authHeader != null));
-        System.out.println("Authorization começa com Bearer: "
-                + (authHeader != null && authHeader.startsWith("Bearer ")));
 
         try {
             String email = jwtService.extractSubject(token);
-            System.out.println("JWT: subject extraído com sucesso = " + (email != null));
 
             if (email != null
                     && SecurityContextHolder.getContext()
@@ -59,8 +57,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 UserDetails userDetails =
                         userDetailsService.loadUserByUsername(email);
-                System.out.println("JWT: utilizador carregado = " + userDetails.getUsername());
-                System.out.println("JWT: utilizador ativo = " + userDetails.isEnabled());
 
                 if (jwtService.isTokenValid(token, userDetails.getUsername())
                         && userDetails.isEnabled()) {
@@ -83,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (io.jsonwebtoken.JwtException
                  | IllegalArgumentException e) {
-            System.out.println("JWT rejeitado: " + e.getClass().getSimpleName());
+            log.debug("JWT rejeitado: {}", e.getClass().getSimpleName());
             SecurityContextHolder.clearContext();
         }
 
