@@ -97,4 +97,14 @@ public class AppointmentController {
         AppointmentResponse response = appointmentService.updateStatus(id, AppointmentStatus.COMPLETED);
         return ResponseEntity.ok(response);
     }
+
+    @PatchMapping("/{id}/no-show")
+    @Operation(summary = "Marcar falta do cliente",
+            description = "**ADMIN, PROFESSIONAL** (só os que recebeu). Só depois da hora de início.")
+    @ApiResponse(responseCode = "400", description = "Transição não permitida ou o agendamento ainda não começou")
+    @ApiResponse(responseCode = "404", description = "Agendamento inexistente")
+    public ResponseEntity<AppointmentResponse> noShow(@PathVariable Long id) {
+        AppointmentResponse response = appointmentService.updateStatus(id, AppointmentStatus.NO_SHOW);
+        return ResponseEntity.ok(response);
+    }
 }

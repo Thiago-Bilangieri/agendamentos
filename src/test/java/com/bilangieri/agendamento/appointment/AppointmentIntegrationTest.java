@@ -114,6 +114,34 @@ class AppointmentIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void professionalMarksNoShowAfterTheAppointmentStarted() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
+                LocalDateTime.now().minusHours(2).withNano(0), AppointmentStatus.CONFIRMED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/no-show", appointment.getId()).header("Authorization", bearer(ANA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NO_SHOW"));
+    }
+
+    @Test
+    void noShowCannotBeMarkedBeforeTheAppointmentStarts() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/no-show", appointment.getId()).header("Authorization", bearer(ANA)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("ainda não começou")));
+    }
+
+    @Test
+    void customerCannotMarkNoShow() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
+                LocalDateTime.now().minusHours(2).withNano(0), AppointmentStatus.CONFIRMED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/no-show", appointment.getId()).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void customerCannotBookForAnotherCustomer() throws Exception {
         book(JOAO, customer(MARIA).getId(), service(ANA, "Corte Feminino").getId(), nextYearAt(10, 0))
                 .andExpect(status().isForbidden());

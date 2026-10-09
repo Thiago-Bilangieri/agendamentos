@@ -99,7 +99,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/appointments/*/confirm",
-                                "/api/appointments/*/complete"
+                                "/api/appointments/*/complete",
+                                "/api/appointments/*/no-show"
                         ).hasAnyRole("ADMIN", "PROFESSIONAL")
                         .requestMatchers(HttpMethod.POST, "/api/appointments")
                         .hasAnyRole("ADMIN", "CUSTOMER")

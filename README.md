@@ -102,7 +102,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
 | Ver horários e disponibilidade | ✅ | ✅ | ✅ |
 | Criar agendamentos | ✅ | ❌ | Para si próprio |
 | Ver agendamentos | Todos | Os que recebeu | Os seus |
-| Confirmar / concluir agendamentos | ✅ | Os que recebeu | ❌ |
+| Confirmar / concluir / marcar falta | ✅ | Os que recebeu | ❌ |
 | Cancelar agendamentos | ✅ | Os que recebeu | Os seus |
 
 ### Regras de negócio
@@ -124,7 +124,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
    | `CONFIRMED` | `COMPLETED`, `CANCELLED`, `NO_SHOW` |
    | `COMPLETED`, `CANCELLED`, `NO_SHOW` | — (estados finais: o agendamento deixa de poder ser alterado ou reagendado) |
 
-   `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento.
+   `COMPLETED` (`PATCH /complete`) e `NO_SHOW` (`PATCH /no-show`, falta do cliente) só podem ser aplicados depois da hora de início do agendamento.
 5. **Remoções**: serviços e clientes com agendamentos associados não podem ser removidos (`409`). Para retirar um serviço do catálogo, desative-o (`active = false`).
 
 ### Como executar
@@ -277,6 +277,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 | PUT | `/api/appointments/{id}` | ADMIN | Reagenda / altera estado e notas |
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirma |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marca como concluído |
+| PATCH | `/api/appointments/{id}/no-show` | ADMIN, PROFESSIONAL | Marca a falta do cliente |
 | PATCH | `/api/appointments/{id}/cancel` | Todos (dono) | Cancela |
 
 #### Exemplo de utilização
@@ -459,7 +460,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
 | View schedules and availability | ✅ | ✅ | ✅ |
 | Book appointments | ✅ | ❌ | For themselves |
 | View appointments | All | Received | Own |
-| Confirm / complete appointments | ✅ | Received | ❌ |
+| Confirm / complete / mark no-show | ✅ | Received | ❌ |
 | Cancel appointments | ✅ | Received | Own |
 
 ### Business rules
@@ -481,7 +482,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
    | `CONFIRMED` | `COMPLETED`, `CANCELLED`, `NO_SHOW` |
    | `COMPLETED`, `CANCELLED`, `NO_SHOW` | — (final states: the appointment can no longer be changed or rescheduled) |
 
-   `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time.
+   `COMPLETED` (`PATCH /complete`) and `NO_SHOW` (`PATCH /no-show`, customer did not show up) can only be applied after the appointment's start time.
 5. **Deletions**: services and customers with appointments cannot be deleted (`409`). To remove a service from the catalogue, deactivate it (`active = false`).
 
 ### Getting started
@@ -634,6 +635,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 | PUT | `/api/appointments/{id}` | ADMIN | Reschedules / changes status and notes |
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirms |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marks as completed |
+| PATCH | `/api/appointments/{id}/no-show` | ADMIN, PROFESSIONAL | Marks the customer as a no-show |
 | PATCH | `/api/appointments/{id}/cancel` | All (owner) | Cancels |
 
 #### Usage example
