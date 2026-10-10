@@ -13,6 +13,8 @@
 
 ## 🇵🇹 Português
 
+> 🚀 **Demo ao vivo:** [Swagger UI](https://agendamento-api-y1dg.onrender.com/swagger-ui.html). Faça login com `joao.silva@email.com` / `password` (outros utilizadores em [Utilizadores de teste](#utilizadores-de-teste)). Corre no plano gratuito do Render: o primeiro pedido após inatividade pode demorar cerca de 1 minuto. Os dados são públicos e podem ser alterados por quem visita.
+
 ### Sobre o projeto
 
 API REST para **agendamento de serviços** entre clientes e prestadores (cabeleireiros, barbeiros, esteticistas, personal trainers, etc.). Foi construída para reproduzir um cenário real de negócio:
@@ -497,6 +499,8 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 ---
 
 ## 🇬🇧 English
+
+> 🚀 **Live demo:** [Swagger UI](https://agendamento-api-y1dg.onrender.com/swagger-ui.html). Log in with `joao.silva@email.com` / `password` (other users under [Test users](#test-users)). It runs on Render's free tier, so the first request after a period of inactivity can take about 1 minute. The data is public and visitors can change it.
 
 ### About
 
