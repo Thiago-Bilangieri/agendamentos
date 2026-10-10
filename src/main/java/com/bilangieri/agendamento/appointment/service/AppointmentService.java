@@ -106,7 +106,7 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public AppointmentResponse findById(Long id) {
-        Appointment appointment = appointmentRepository.findById(id)
+        Appointment appointment = appointmentRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
         return AppointmentResponse.fromEntity(appointment);
@@ -114,7 +114,7 @@ public class AppointmentService {
 
     @Transactional
     public AppointmentResponse update(Long id, AppointmentUpdateRequest request) {
-        Appointment appointment = appointmentRepository.findById(id)
+        Appointment appointment = appointmentRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
 
@@ -153,7 +153,7 @@ public class AppointmentService {
 
     @Transactional
     public AppointmentResponse updateStatus(Long id, AppointmentStatus status) {
-        Appointment appointment = appointmentRepository.findById(id)
+        Appointment appointment = appointmentRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
         validateTransition(appointment.getStatus(), status, appointment.getStartAt());

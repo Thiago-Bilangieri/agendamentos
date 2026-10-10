@@ -214,7 +214,7 @@ class AppointmentServiceTest {
                 .id(50L).customer(customer).service(service).professional(professional)
                 .startAt(startAt).endAt(startAt.plusMinutes(45)).status(status)
                 .build();
-        when(appointmentRepository.findById(50L)).thenReturn(Optional.of(appointment));
+        when(appointmentRepository.findWithDetailsById(50L)).thenReturn(Optional.of(appointment));
         return appointment;
     }
 
