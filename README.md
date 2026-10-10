@@ -13,7 +13,9 @@
 
 ## 🇵🇹 Português
 
-> 🚀 **Demo ao vivo:** [Swagger UI](https://agendamento-api-y1dg.onrender.com/swagger-ui.html). Faça login com `joao.silva@email.com` / `password` (outros utilizadores em [Utilizadores de teste](#utilizadores-de-teste)). Corre no plano gratuito do Render: o primeiro pedido após inatividade pode demorar cerca de 1 minuto. Os dados são públicos e podem ser alterados por quem visita.
+> 🚀 **Demo ao vivo:** [Swagger UI](https://agendamento-api-y1dg.onrender.com/swagger-ui.html). Faça login com `joao.silva@email.com` / `password` (outros utilizadores em [Utilizadores de teste](#utilizadores-de-teste)). Os dados são públicos e podem ser alterados por quem visita.
+>
+> ⏳ **O primeiro acesso pode demorar cerca de 1 minuto.** A demo está no plano gratuito do Render, que adormece o serviço após 15 minutos sem pedidos. Se o Swagger demorar a abrir, aguarde: depois de acordar, a API responde normalmente.
 
 ### Sobre o projeto
 
@@ -500,7 +502,9 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 
 ## 🇬🇧 English
 
-> 🚀 **Live demo:** [Swagger UI](https://agendamento-api-y1dg.onrender.com/swagger-ui.html). Log in with `joao.silva@email.com` / `password` (other users under [Test users](#test-users)). It runs on Render's free tier, so the first request after a period of inactivity can take about 1 minute. The data is public and visitors can change it.
+> 🚀 **Live demo:** [Swagger UI](https://agendamento-api-y1dg.onrender.com/swagger-ui.html). Log in with `joao.silva@email.com` / `password` (other users under [Test users](#test-users)). The data is public and visitors can change it.
+>
+> ⏳ **The first request may take about 1 minute.** The demo runs on Render's free tier, which puts the service to sleep after 15 minutes without requests. If Swagger is slow to open, wait: once awake, the API responds normally.
 
 ### About
 
