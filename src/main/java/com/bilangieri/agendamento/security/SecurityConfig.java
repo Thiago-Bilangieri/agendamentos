@@ -70,6 +70,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // Sondas de liveness/readiness (Docker, Kubernetes, load balancer)
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
 
                         // Administração (aprovação de prestadores)
                         .requestMatchers("/api/admin/**")

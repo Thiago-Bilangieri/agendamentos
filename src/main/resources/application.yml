@@ -48,6 +48,17 @@ api:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
 
+# Só o health fica exposto (público, sem detalhes): /actuator/health, /health/liveness e /health/readiness
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
 springdoc:
   api-docs:
     path: /v3/api-docs

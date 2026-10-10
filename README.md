@@ -267,6 +267,7 @@ Requer o Docker em execução: os testes de integração arrancam um PostgreSQL 
 |---|---|
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Especificação OpenAPI (JSON) | http://localhost:8080/v3/api-docs |
+| Health (liveness / readiness) | http://localhost:8080/actuator/health |
 
 **Como autenticar no Swagger:**
 
@@ -738,6 +739,7 @@ Requires Docker to be running: integration tests start a throwaway PostgreSQL wi
 |---|---|
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | OpenAPI spec (JSON) | http://localhost:8080/v3/api-docs |
+| Health (liveness / readiness) | http://localhost:8080/actuator/health |
 
 **Authenticating in Swagger:**
 
