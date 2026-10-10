@@ -48,6 +48,16 @@ class ServiceIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void nameFilterTreatsLikeWildcardsAsPlainText() throws Exception {
+        for (String wildcard : new String[]{"%", "_"}) {
+            mockMvc.perform(get("/api/services").param("name", wildcard)
+                            .header("Authorization", bearer(ADMIN)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content", hasSize(0)));
+        }
+    }
+
+    @Test
     void customerGetsEmptyListForProfessionalNotApproved() throws Exception {
         mockMvc.perform(get("/api/services").param("professionalId", user(DIOGO_PENDING).getId().toString())
                         .header("Authorization", bearer(JOAO)))

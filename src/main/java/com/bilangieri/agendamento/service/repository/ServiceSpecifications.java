@@ -5,6 +5,8 @@ import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import jakarta.persistence.criteria.Join;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.Locale;
+
 // Filtros combináveis da listagem de serviços
 public final class ServiceSpecifications {
 
@@ -31,7 +33,12 @@ public final class ServiceSpecifications {
         return (root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId);
     }
 
+    // "%" e "_" escritos pelo utilizador são procurados literalmente, não como curingas do LIKE
     public static Specification<Service> nameContains(String text) {
-        return (root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + text.trim().toLowerCase() + "%");
+        String escaped = text.trim().toLowerCase(Locale.ROOT)
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+        return (root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + escaped + "%", '\\');
     }
 }
