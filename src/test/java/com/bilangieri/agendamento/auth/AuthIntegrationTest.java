@@ -1,7 +1,9 @@
 package com.bilangieri.agendamento.auth;
 
 import com.bilangieri.agendamento.IntegrationTest;
+import com.bilangieri.agendamento.auth.service.JwtService;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -13,6 +15,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class AuthIntegrationTest extends IntegrationTest {
+
+    @Value("${api.security.token.secret}")
+    private String tokenSecret;
 
     private ResultActions login(String email, String password) throws Exception {
         return mockMvc.perform(post("/api/auth/login")
@@ -118,6 +123,28 @@ class AuthIntegrationTest extends IntegrationTest {
     @Test
     void protectedEndpointsRequireToken() throws Exception {
         mockMvc.perform(get("/api/services")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void expiredTokenIsRejected() throws Exception {
+        String expired = new JwtService(tokenSecret, -1_000).generateToken(JOAO);
+
+        mockMvc.perform(get("/api/services").header("Authorization", "Bearer " + expired))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void tokenSignedWithAnotherKeyIsRejected() throws Exception {
+        String forged = new JwtService("outra-chave-com-pelo-menos-32-caracteres!", 60_000).generateToken(ADMIN);
+
+        mockMvc.perform(get("/api/services").header("Authorization", "Bearer " + forged))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void tokenOfAnAccountThatNoLongerExistsIsRejected() throws Exception {
+        mockMvc.perform(get("/api/services").header("Authorization", bearer("apagado@email.com")))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

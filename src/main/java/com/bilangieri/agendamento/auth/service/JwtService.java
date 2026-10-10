@@ -1,6 +1,6 @@
 package com.bilangieri.agendamento.auth.service;
 
-import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,59 +20,30 @@ public class JwtService {
             @Value("${api.security.token.secret}") String secret,
             @Value("${api.security.token.expiration}") long expiration
     ) {
-        this.secretKey = Keys.hmacShaKeyFor(
-                secret.getBytes(StandardCharsets.UTF_8)
-        );
-
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
     }
 
     public String generateToken(String subject) {
-
         Date issuedAt = new Date();
-        Date expirationDate = new Date(
-                issuedAt.getTime() + expiration
-        );
-
         return Jwts.builder()
                 .subject(subject)
                 .issuedAt(issuedAt)
-                .expiration(expirationDate)
+                .expiration(new Date(issuedAt.getTime() + expiration))
                 .signWith(secretKey)
                 .compact();
     }
 
-    public String extractSubject(String token) {
-
-        return getClaims(token).getSubject();
-    }
-
-    public boolean isTokenValid(String token, String subject) {
-
-        try {
-            String tokenSubject = extractSubject(token);
-
-            return tokenSubject.equals(subject)
-                    && !isTokenExpired(token);
-
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private boolean isTokenExpired(String token) {
-
-        return getClaims(token)
-                .getExpiration()
-                .before(new Date());
-    }
-
-    private Claims getClaims(String token) {
-
+    /**
+     * Devolve o subject (email) de um token válido. A assinatura e a expiração são verificadas pelo parser:
+     * um token adulterado, malformado ou expirado lança JwtException.
+     */
+    public String extractSubject(String token) throws JwtException {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload();
+                .getPayload()
+                .getSubject();
     }
 }
