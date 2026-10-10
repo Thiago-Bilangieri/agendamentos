@@ -25,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,7 @@ public class AppointmentService {
     private final UserRepository userRepository;
     private final WorkingHoursService workingHoursService;
     private final CurrentUserService currentUserService;
+    private final Clock clock;
 
     @Transactional
     public AppointmentResponse create(AppointmentCreateRequest request) {
@@ -143,7 +145,7 @@ public class AppointmentService {
     }
 
     private void reschedule(Appointment appointment, LocalDateTime startAt) {
-        if (!startAt.isAfter(LocalDateTime.now())) {
+        if (!startAt.isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException("A data de início deve ser no futuro");
         }
 
@@ -201,11 +203,11 @@ public class AppointmentService {
             throw new BusinessException("Não é possível alterar o estado do agendamento de " + current + " para " + target + ".");
         }
 
-        if (target.requiresStarted() && startAt.isAfter(LocalDateTime.now())) {
+        if (target.requiresStarted() && startAt.isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException("Não é possível marcar como " + target + " um agendamento que ainda não começou.");
         }
 
-        if (target.requiresNotStarted() && !startAt.isAfter(LocalDateTime.now())) {
+        if (target.requiresNotStarted() && !startAt.isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException("Não é possível cancelar um agendamento que já começou.");
         }
     }

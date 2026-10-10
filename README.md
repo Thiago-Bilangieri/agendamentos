@@ -457,6 +457,7 @@ Em desenvolvimento não é preciso configurar nada: o perfil `dev` é ativado au
 | `DB_USERNAME` / `DB_PASSWORD` | Credenciais da base de dados | ✅ |
 | `JWT_SECRET` | Chave de assinatura do JWT (mínimo 32 caracteres) | ✅ |
 | `JWT_EXPIRATION` | Validade do token em ms (por omissão `86400000`, 24 h) | ❌ |
+| `APP_TIME_ZONE` | Fuso dos horários do negócio (por omissão `Europe/Lisbon`). As datas da API não têm fuso e são locais a este | ❌ |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (password com 8+ caracteres). Nunca altera uma conta existente | No primeiro arranque |
 
 ```bash
@@ -929,6 +930,7 @@ Nothing needs to be configured for development: the `dev` profile is activated a
 | `DB_USERNAME` / `DB_PASSWORD` | Database credentials | ✅ |
 | `JWT_SECRET` | JWT signing key (at least 32 characters) | ✅ |
 | `JWT_EXPIRATION` | Token lifetime in ms (defaults to `86400000`, 24 h) | ❌ |
+| `APP_TIME_ZONE` | Business time zone (defaults to `Europe/Lisbon`). API dates carry no offset and are local to it | ❌ |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Creates the first ADMIN on startup if that email does not exist yet (password with 8+ characters). Never changes an existing account | On first start |
 
 ```bash

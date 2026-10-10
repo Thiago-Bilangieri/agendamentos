@@ -21,13 +21,14 @@ import com.bilangieri.agendamento.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,7 +58,10 @@ class AppointmentServiceTest {
     @Mock
     private CurrentUserService currentUserService;
 
-    @InjectMocks
+    // Tempo fixo: as regras "no futuro" / "já começou" não dependem da hora a que o teste corre
+    private static final ZoneId ZONE = ZoneId.of("Europe/Lisbon");
+    private static final LocalDateTime NOW = LocalDateTime.of(2030, 3, 13, 12, 0);
+
     private AppointmentService appointmentService;
 
     private User professional;
@@ -66,6 +70,10 @@ class AppointmentServiceTest {
 
     @BeforeEach
     void setUp() {
+        Clock clock = Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE);
+        appointmentService = new AppointmentService(appointmentRepository, customerRepository, serviceRepository,
+                userRepository, workingHoursService, currentUserService, clock);
+
         professional = User.builder().id(10L).name("Ana").email("ana@test.com").role(Role.PROFESSIONAL).build();
         customer = Customer.builder().id(1L).name("João").email("joao@test.com").build();
         service = Service.builder().id(100L).name("Corte").durationMinutes(45).professional(professional).build();
@@ -87,7 +95,7 @@ class AppointmentServiceTest {
         loggedInAs(Role.ADMIN);
         bookingFixtures();
         when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        LocalDateTime start = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime start = NOW.plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0);
 
         AppointmentResponse response = appointmentService.create(new AppointmentCreateRequest(1L, 100L, start, null));
 
@@ -104,7 +112,7 @@ class AppointmentServiceTest {
                 .thenReturn(List.of(new Appointment()));
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(1L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("conflituoso");
 
@@ -120,7 +128,7 @@ class AppointmentServiceTest {
                 "insert failed", new RuntimeException("violates exclusion constraint \"appointments_no_overlap\"")));
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(1L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("conflituoso");
     }
@@ -133,7 +141,7 @@ class AppointmentServiceTest {
                 "insert failed", new RuntimeException("violates foreign key constraint \"fk_appointment_customer\"")));
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(1L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -144,7 +152,7 @@ class AppointmentServiceTest {
         when(workingHoursService.isWithinWorkingHours(any(), any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(1L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("fora do horário de trabalho");
 
@@ -158,7 +166,7 @@ class AppointmentServiceTest {
         service.setActive(false);
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(1L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("não está disponível");
     }
@@ -170,7 +178,7 @@ class AppointmentServiceTest {
         professional.setApprovalStatus(ApprovalStatus.PENDING);
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(1L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -181,7 +189,7 @@ class AppointmentServiceTest {
         when(customerRepository.findByUserEmail("joao@test.com")).thenReturn(Optional.of(customer));
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(2L, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(2L, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -194,7 +202,7 @@ class AppointmentServiceTest {
         when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         AppointmentResponse response = appointmentService.create(
-                new AppointmentCreateRequest(null, 100L, LocalDateTime.now().plusDays(1), null));
+                new AppointmentCreateRequest(null, 100L, NOW.plusDays(1), null));
 
         assertThat(response.customerId()).isEqualTo(customer.getId());
         verify(customerRepository, never()).findById(any());
@@ -205,7 +213,7 @@ class AppointmentServiceTest {
         loggedInAs(Role.ADMIN);
 
         assertThatThrownBy(() -> appointmentService.create(
-                new AppointmentCreateRequest(null, 100L, LocalDateTime.now().plusDays(1), null)))
+                new AppointmentCreateRequest(null, 100L, NOW.plusDays(1), null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("ID do cliente é obrigatório");
     }
@@ -222,7 +230,7 @@ class AppointmentServiceTest {
     @Test
     void cannotCancelCompletedAppointment() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.COMPLETED, LocalDateTime.now().minusDays(1));
+        existingAppointment(AppointmentStatus.COMPLETED, NOW.minusDays(1));
 
         assertThatThrownBy(() -> appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED))
                 .isInstanceOf(BusinessException.class)
@@ -234,7 +242,7 @@ class AppointmentServiceTest {
     @Test
     void cannotCompleteAppointmentThatHasNotStarted() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.CONFIRMED, LocalDateTime.now().plusHours(2));
+        existingAppointment(AppointmentStatus.CONFIRMED, NOW.plusHours(2));
 
         assertThatThrownBy(() -> appointmentService.updateStatus(50L, AppointmentStatus.COMPLETED))
                 .isInstanceOf(BusinessException.class)
@@ -244,7 +252,7 @@ class AppointmentServiceTest {
     @Test
     void completesAppointmentThatAlreadyStarted() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.CONFIRMED, LocalDateTime.now().minusHours(1));
+        existingAppointment(AppointmentStatus.CONFIRMED, NOW.minusHours(1));
         when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         AppointmentResponse response = appointmentService.updateStatus(50L, AppointmentStatus.COMPLETED);
@@ -255,7 +263,7 @@ class AppointmentServiceTest {
     @Test
     void cannotCancelAppointmentThatAlreadyStarted() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.SCHEDULED, LocalDateTime.now().minusDays(1));
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.minusDays(1));
 
         assertThatThrownBy(() -> appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED))
                 .isInstanceOf(BusinessException.class)
@@ -267,7 +275,7 @@ class AppointmentServiceTest {
     @Test
     void cancelsFutureAppointment() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.CONFIRMED, LocalDateTime.now().plusDays(1));
+        existingAppointment(AppointmentStatus.CONFIRMED, NOW.plusDays(1));
         when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         AppointmentResponse response = appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED);
@@ -278,7 +286,7 @@ class AppointmentServiceTest {
     @Test
     void updatesNotesOfAppointmentThatAlreadyStartedWithoutRescheduling() {
         loggedInAs(Role.ADMIN);
-        LocalDateTime startAt = LocalDateTime.now().minusHours(1);
+        LocalDateTime startAt = NOW.minusHours(1);
         existingAppointment(AppointmentStatus.CONFIRMED, startAt);
         when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -294,10 +302,10 @@ class AppointmentServiceTest {
     @Test
     void cannotRescheduleToThePast() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.SCHEDULED, LocalDateTime.now().plusDays(1));
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
 
         assertThatThrownBy(() -> appointmentService.update(50L,
-                new AppointmentUpdateRequest(LocalDateTime.now().minusDays(1), AppointmentStatus.SCHEDULED, null)))
+                new AppointmentUpdateRequest(NOW.minusDays(1), AppointmentStatus.SCHEDULED, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("no futuro");
 
@@ -307,8 +315,8 @@ class AppointmentServiceTest {
     @Test
     void reschedulingStillChecksConflicts() {
         loggedInAs(Role.ADMIN);
-        existingAppointment(AppointmentStatus.SCHEDULED, LocalDateTime.now().plusDays(1));
-        LocalDateTime newStart = LocalDateTime.now().plusDays(2);
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
+        LocalDateTime newStart = NOW.plusDays(2);
         Appointment other = Appointment.builder().id(51L).build();
         when(appointmentRepository.findConflictingAppointments(10L, newStart, newStart.plusMinutes(45)))
                 .thenReturn(List.of(other));

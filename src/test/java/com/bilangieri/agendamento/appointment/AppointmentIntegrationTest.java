@@ -117,7 +117,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
     @Test
     void professionalMarksNoShowAfterTheAppointmentStarted() throws Exception {
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
-                LocalDateTime.now().minusHours(2).withNano(0), AppointmentStatus.CONFIRMED);
+                now().minusHours(2), AppointmentStatus.CONFIRMED);
 
         mockMvc.perform(patch("/api/appointments/{id}/no-show", appointment.getId()).header("Authorization", bearer(ANA)))
                 .andExpect(status().isOk())
@@ -136,7 +136,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
     @Test
     void customerCannotMarkNoShow() throws Exception {
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
-                LocalDateTime.now().minusHours(2).withNano(0), AppointmentStatus.CONFIRMED);
+                now().minusHours(2), AppointmentStatus.CONFIRMED);
 
         mockMvc.perform(patch("/api/appointments/{id}/no-show", appointment.getId()).header("Authorization", bearer(JOAO)))
                 .andExpect(status().isForbidden());
@@ -156,7 +156,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
     @Test
     void bookingInThePastFailsValidation() throws Exception {
-        book(JOAO, customer(JOAO).getId(), service(ANA, "Corte Feminino").getId(), LocalDateTime.now().minusDays(1).withNano(0))
+        book(JOAO, customer(JOAO).getId(), service(ANA, "Corte Feminino").getId(), now().minusDays(1))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.startAt").exists());
     }
@@ -219,7 +219,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
     @Test
     void completedAppointmentCannotBeCancelled() throws Exception {
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
-                LocalDateTime.now().minusDays(2).withNano(0), AppointmentStatus.COMPLETED);
+                now().minusDays(2), AppointmentStatus.COMPLETED);
 
         mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(ADMIN)))
                 .andExpect(status().isBadRequest())
@@ -229,7 +229,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
     @Test
     void customerCannotCancelAppointmentThatAlreadyStarted() throws Exception {
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
-                LocalDateTime.now().minusDays(2).withNano(0), AppointmentStatus.SCHEDULED);
+                now().minusDays(2), AppointmentStatus.SCHEDULED);
 
         mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(JOAO)))
                 .andExpect(status().isBadRequest())
@@ -238,7 +238,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
 
     @Test
     void adminUpdatesNotesOfAppointmentThatAlreadyStarted() throws Exception {
-        LocalDateTime startAt = LocalDateTime.now().minusHours(1).withNano(0);
+        LocalDateTime startAt = now().minusHours(1);
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), startAt, AppointmentStatus.CONFIRMED);
 
         mockMvc.perform(put("/api/appointments/{id}", appointment.getId())
@@ -259,7 +259,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
                         .header("Authorization", bearer(ADMIN))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"startAt":"%s","status":"SCHEDULED"}""".formatted(LocalDateTime.now().minusDays(1).withNano(0))))
+                                {"startAt":"%s","status":"SCHEDULED"}""".formatted(now().minusDays(1))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail", containsString("no futuro")));
     }

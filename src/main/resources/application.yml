@@ -36,6 +36,8 @@ spring:
     locations: classpath:db/migration
 
 api:
+  # Fuso dos horários do negócio: todas as datas da API são locais a este fuso (ver TimeConfig)
+  time-zone: ${APP_TIME_ZONE:Europe/Lisbon}
   security:
     token:
       # Mínimo de 32 caracteres (HMAC-SHA256)

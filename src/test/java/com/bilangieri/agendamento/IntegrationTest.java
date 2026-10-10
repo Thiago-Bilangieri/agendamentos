@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -58,6 +59,14 @@ public abstract class IntegrationTest {
     @Autowired
     protected AppointmentRepository appointmentRepository;
 
+    // O mesmo relógio da aplicação (fuso do negócio), para "agora" significar o mesmo nos testes e nas regras
+    @Autowired
+    protected Clock clock;
+
+    protected LocalDateTime now() {
+        return LocalDateTime.now(clock).withNano(0);
+    }
+
     protected String bearer(String email) {
         return "Bearer " + jwtService.generateToken(email);
     }
@@ -77,7 +86,7 @@ public abstract class IntegrationTest {
     // Quarta-feira daqui a um ano: sem agendamentos nos dados de teste e dia de trabalho
     // de todos os prestadores de teste (ver db/testdata)
     protected LocalDate nextYearWednesday() {
-        return LocalDate.now().plusYears(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
+        return LocalDate.now(clock).plusYears(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
     }
 
     protected LocalDateTime nextYearAt(int hour, int minute) {

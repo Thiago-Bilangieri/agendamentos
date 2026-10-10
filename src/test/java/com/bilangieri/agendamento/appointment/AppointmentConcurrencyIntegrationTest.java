@@ -30,7 +30,7 @@ class AppointmentConcurrencyIntegrationTest extends IntegrationTest {
     @AfterEach
     void cleanUp() {
         appointmentRepository.findByProfessionalId(user(CARLA).getId()).stream()
-                .filter(appointment -> appointment.getStartAt().isAfter(LocalDateTime.now().plusMonths(6)))
+                .filter(appointment -> appointment.getStartAt().isAfter(now().plusMonths(6)))
                 .forEach(appointmentRepository::delete);
     }
 

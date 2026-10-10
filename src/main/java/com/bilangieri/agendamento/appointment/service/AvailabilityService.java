@@ -10,6 +10,7 @@ import com.bilangieri.agendamento.service.service.ServiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class AvailabilityService {
     private final ServiceService serviceService;
     private final WorkingHoursService workingHoursService;
     private final AppointmentRepository appointmentRepository;
+    private final Clock clock;
 
     // Horários em que o serviço pode ser marcado nesse dia: dentro do horário de trabalho do prestador,
     // sem sobrepor agendamentos ativos e ainda no futuro. Usa as mesmas regras do AppointmentService.
@@ -39,7 +41,7 @@ public class AvailabilityService {
         int duration = service.getDurationMinutes();
         List<Appointment> booked = appointmentRepository.findConflictingAppointments(
                 professionalId, date.atStartOfDay(), date.plusDays(1).atStartOfDay());
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         List<TimeSlot> slots = new ArrayList<>();
         for (WorkingHours block : workingHoursService.blocksOn(professionalId, date.getDayOfWeek())) {
