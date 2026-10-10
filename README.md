@@ -429,7 +429,7 @@ Nos erros de validação, `errors` indica o problema de cada campo:
 ### Docker e integração contínua
 
 - **`Dockerfile`** multi-stage: compila com o JDK 21 e corre só com o JRE, como utilizador sem privilégios, com o jar separado em camadas (dependências / código) para builds mais rápidos.
-- **GitHub Actions** (`.github/workflows/ci.yml`): a cada push e pull request para a `main`, corre todos os testes (os de integração usam Testcontainers no Docker do runner) e constrói a imagem.
+- **GitHub Actions** (`.github/workflows/ci.yml`): a cada push e pull request para a `main`, corre todos os testes (os de integração usam Testcontainers no Docker do runner) publica o relatório de cobertura (JaCoCo) e constrói a imagem. Localmente: `./mvnw verify` gera `target/site/jacoco/index.html`.
 
 Para produção, use a imagem com o perfil `prod` e as variáveis de ambiente descritas abaixo:
 
@@ -905,7 +905,7 @@ Validation errors list each field's problem in `errors`:
 ### Docker and continuous integration
 
 - **Multi-stage `Dockerfile`**: builds with JDK 21 and runs on the JRE only, as an unprivileged user, with the jar split into layers (dependencies / code) for faster builds.
-- **GitHub Actions** (`.github/workflows/ci.yml`): on every push and pull request to `main`, runs the whole test suite (integration tests use Testcontainers on the runner's Docker) and builds the image.
+- **GitHub Actions** (`.github/workflows/ci.yml`): on every push and pull request to `main`, runs the whole test suite (integration tests use Testcontainers on the runner's Docker) publishes the coverage report (JaCoCo) and builds the image. Locally: `./mvnw verify` generates `target/site/jacoco/index.html`.
 
 For production, run the image with the `prod` profile and the environment variables described below:
 

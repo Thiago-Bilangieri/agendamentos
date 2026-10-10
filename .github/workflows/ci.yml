@@ -34,6 +34,12 @@ jobs:
       - name: Testes
         run: ./mvnw -B verify
 
+      - name: Relatório de cobertura (JaCoCo)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
       - name: Relatórios dos testes
         if: failure()
         uses: actions/upload-artifact@v4
