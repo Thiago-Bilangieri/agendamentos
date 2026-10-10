@@ -38,8 +38,9 @@ class AppointmentQueryCountIntegrationTest extends IntegrationTest {
         mockMvc.perform(get("/api/appointments").header("Authorization", bearer(ADMIN)))
                 .andExpect(status().isOk());
 
-        // 1 do filtro JWT (carrega o utilizador) + 1 dos agendamentos com os JOINs + 1 do count da paginação
-        assertThat(statistics.getPrepareStatementCount()).isEqualTo(3);
+        // 1 do filtro JWT (carrega o utilizador) + 1 dos agendamentos com os JOINs.
+        // Sem count: os 17 agendamentos cabem na primeira página (20), por isso o Spring Data já sabe o total
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(2);
     }
 
     @Test

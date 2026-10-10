@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -46,7 +46,7 @@ public class AppointmentController {
             **Todos os perfis.** CUSTOMER vê os seus, PROFESSIONAL os que recebeu, ADMIN todos. \
             Ordenação por omissão: `startAt`.""")
     public ResponseEntity<Page<AppointmentResponse>> findAll(
-            @ParameterObject @PageableDefault(sort = "startAt") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "startAt") Pageable pageable) {
         return ResponseEntity.ok(appointmentService.findAll(pageable));
     }
 

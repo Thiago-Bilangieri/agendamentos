@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +28,7 @@ public class ProfessionalAdminController {
     @Operation(summary = "Listar prestadores por estado", description = "**ADMIN.** Ordenação por omissão: `name`.")
     public ResponseEntity<Page<ProfessionalResponse>> findByStatus(
             @Parameter(description = "Estado da aprovação") @RequestParam(defaultValue = "PENDING") ApprovalStatus status,
-            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "name") Pageable pageable) {
         return ResponseEntity.ok(professionalService.findByStatus(status, pageable));
     }
 

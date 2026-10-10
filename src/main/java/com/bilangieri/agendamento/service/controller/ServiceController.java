@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -56,7 +56,7 @@ public class ServiceController {
             Os filtros são opcionais e combinam-se entre si. Ordenação por omissão: `name`.""")
     public ResponseEntity<Page<ServiceResponse>> findAll(
             @ParameterObject ServiceFilter filter,
-            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "name") Pageable pageable) {
         return ResponseEntity.ok(serviceService.findAll(filter, pageable));
     }
 

@@ -37,6 +37,13 @@ class PaginationIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void defaultPageSizeComesFromConfiguration() throws Exception {
+        mockMvc.perform(get("/api/appointments").header("Authorization", bearer(ADMIN)))
+                .andExpect(jsonPath("$.page.size").value(20))
+                .andExpect(jsonPath("$.content", hasSize(17)));
+    }
+
+    @Test
     void pageSizeIsCapped() throws Exception {
         mockMvc.perform(get("/api/customers").param("size", "1000").header("Authorization", bearer(ADMIN)))
                 .andExpect(jsonPath("$.page.size").value(100));

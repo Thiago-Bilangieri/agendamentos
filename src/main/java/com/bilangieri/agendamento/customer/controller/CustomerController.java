@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -40,7 +40,7 @@ public class CustomerController {
     @GetMapping
     @Operation(summary = "Listar clientes", description = "**ADMIN.** Ordenação por omissão: `name`.")
     public ResponseEntity<Page<CustomerResponse>> findAll(
-            @ParameterObject @PageableDefault(sort = "name") Pageable pageable) {
+            @ParameterObject @SortDefault(sort = "name") Pageable pageable) {
         return ResponseEntity.ok(customerService.findAll(pageable));
     }
 
