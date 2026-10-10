@@ -70,14 +70,58 @@ Fluxo de um pedido: `Controller → Service (regras de negócio e permissões) �
 
 ### Modelo de dados
 
-```
-users ──< services                 (um prestador oferece vários serviços)
-users ──< working_hours            (blocos do horário semanal do prestador)
-service_categories ──< services    (categoria opcional)
-users ──< appointments             (um prestador recebe vários agendamentos)
-users ──1 customers                (um cliente com conta tem um registo em customers)
-customers ──< appointments
-services  ──< appointments
+```mermaid
+erDiagram
+    users ||--o{ services : "oferece"
+    users ||--o{ working_hours : "define"
+    users ||--o{ appointments : "recebe (prestador)"
+    users |o--o| customers : "conta do cliente"
+    service_categories |o--o{ services : "classifica"
+    customers ||--o{ appointments : "marca"
+    services ||--o{ appointments : "é marcado em"
+
+    users {
+        bigint id PK
+        varchar email UK
+        varchar role "ADMIN, PROFESSIONAL, CUSTOMER"
+        varchar approval_status "PENDING, APPROVED, REJECTED"
+        boolean active
+    }
+    customers {
+        bigint id PK
+        varchar email UK
+        varchar phone
+        bigint user_id FK "opcional"
+    }
+    services {
+        bigint id PK
+        varchar name
+        decimal price
+        int duration_minutes
+        boolean active
+        bigint professional_id FK
+        bigint category_id FK "opcional"
+    }
+    service_categories {
+        bigint id PK
+        varchar name UK
+    }
+    working_hours {
+        bigint id PK
+        bigint professional_id FK
+        varchar day_of_week
+        time start_time
+        time end_time
+    }
+    appointments {
+        bigint id PK
+        bigint customer_id FK
+        bigint service_id FK
+        bigint professional_id FK
+        timestamp start_at
+        timestamp end_at
+        varchar status
+    }
 ```
 
 - `users`: todas as contas (`role`, `active`, `approval_status`).
@@ -119,14 +163,47 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
    - **Conflitos de horário**: é rejeitado com `409` qualquer agendamento que se sobreponha a outro do mesmo prestador (exceto os `CANCELLED`). A mesma validação é aplicada no reagendamento. A regra é garantida também com pedidos simultâneos: as marcações do mesmo prestador são serializadas (`SELECT ... FOR UPDATE`) e uma *exclusion constraint* do PostgreSQL (`appointments_no_overlap`, migração V7) impede sobreposições ao nível da base de dados.
 4. **Estados do agendamento**:
 
-   | De | Pode passar a |
-   |---|---|
-   | `SCHEDULED` | `CONFIRMED`, `COMPLETED`, `CANCELLED`, `NO_SHOW` |
-   | `CONFIRMED` | `COMPLETED`, `CANCELLED`, `NO_SHOW` |
-   | `COMPLETED`, `CANCELLED`, `NO_SHOW` | — (estados finais: o agendamento deixa de poder ser alterado ou reagendado) |
+   ```mermaid
+   stateDiagram-v2
+       state "Ativo" as Ativo {
+           [*] --> SCHEDULED
+           SCHEDULED --> CONFIRMED : PATCH /confirm
+       }
+       [*] --> Ativo : POST /appointments
+       Ativo --> CANCELLED : PATCH /cancel (antes do início)
+       Ativo --> COMPLETED : PATCH /complete (depois do início)
+       Ativo --> NO_SHOW : PATCH /no-show (depois do início)
+       COMPLETED --> [*]
+       CANCELLED --> [*]
+       NO_SHOW --> [*]
+   ```
 
-   `COMPLETED` (`PATCH /complete`) e `NO_SHOW` (`PATCH /no-show`, falta do cliente) só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` (`PATCH /cancel`) só antes dela.
+   `COMPLETED`, `CANCELLED` e `NO_SHOW` (falta do cliente) são estados finais: o agendamento deixa de poder ser alterado ou reagendado. `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` só antes dela.
 5. **Remoções**: serviços e clientes com agendamentos associados não podem ser removidos (`409`). Para retirar um serviço do catálogo, desative-o (`active = false`).
+
+#### Como uma marcação evita conflitos, mesmo com pedidos simultâneos
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant S as AppointmentService
+    participant DB as PostgreSQL
+
+    C->>S: POST /api/appointments
+    S->>DB: Busca o serviço e o cliente
+    S->>S: Calcula endAt e valida o horário de trabalho
+    S->>DB: SELECT prestador FOR UPDATE
+    Note over S,DB: Outro pedido para o mesmo prestador fica à espera aqui até ao fim desta transação
+    S->>DB: Procura agendamentos sobrepostos (exceto CANCELLED)
+    alt Horário ocupado
+        S-->>C: 409 Conflict
+    else Horário livre
+        S->>DB: INSERT appointment
+        Note over DB: Exclusion constraint appointments_no_overlap, última defesa contra qualquer outra escrita
+        S-->>C: 201 Created
+    end
+```
 
 ### Como executar
 
@@ -463,14 +540,58 @@ Request flow: `Controller → Service (business rules and permissions) → Repos
 
 ### Data model
 
-```
-users ──< services                 (a provider offers many services)
-users ──< working_hours            (blocks of the provider's weekly schedule)
-service_categories ──< services    (optional category)
-users ──< appointments             (a provider receives many appointments)
-users ──1 customers                (a customer with an account has one customers row)
-customers ──< appointments
-services  ──< appointments
+```mermaid
+erDiagram
+    users ||--o{ services : "offers"
+    users ||--o{ working_hours : "defines"
+    users ||--o{ appointments : "receives (provider)"
+    users |o--o| customers : "customer account"
+    service_categories |o--o{ services : "classifies"
+    customers ||--o{ appointments : "books"
+    services ||--o{ appointments : "is booked in"
+
+    users {
+        bigint id PK
+        varchar email UK
+        varchar role "ADMIN, PROFESSIONAL, CUSTOMER"
+        varchar approval_status "PENDING, APPROVED, REJECTED"
+        boolean active
+    }
+    customers {
+        bigint id PK
+        varchar email UK
+        varchar phone
+        bigint user_id FK "optional"
+    }
+    services {
+        bigint id PK
+        varchar name
+        decimal price
+        int duration_minutes
+        boolean active
+        bigint professional_id FK
+        bigint category_id FK "optional"
+    }
+    service_categories {
+        bigint id PK
+        varchar name UK
+    }
+    working_hours {
+        bigint id PK
+        bigint professional_id FK
+        varchar day_of_week
+        time start_time
+        time end_time
+    }
+    appointments {
+        bigint id PK
+        bigint customer_id FK
+        bigint service_id FK
+        bigint professional_id FK
+        timestamp start_at
+        timestamp end_at
+        varchar status
+    }
 ```
 
 - `users`: every account (`role`, `active`, `approval_status`).
@@ -512,14 +633,47 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
    - **Time conflicts**: any booking that overlaps another appointment of the same provider (except `CANCELLED` ones) is rejected with `409`. The same check applies when rescheduling. The rule also holds under concurrent requests: bookings for the same provider are serialised (`SELECT ... FOR UPDATE`) and a PostgreSQL *exclusion constraint* (`appointments_no_overlap`, migration V7) prevents overlaps at the database level.
 4. **Appointment lifecycle**:
 
-   | From | Can become |
-   |---|---|
-   | `SCHEDULED` | `CONFIRMED`, `COMPLETED`, `CANCELLED`, `NO_SHOW` |
-   | `CONFIRMED` | `COMPLETED`, `CANCELLED`, `NO_SHOW` |
-   | `COMPLETED`, `CANCELLED`, `NO_SHOW` | — (final states: the appointment can no longer be changed or rescheduled) |
+   ```mermaid
+   stateDiagram-v2
+       state "Active" as Active {
+           [*] --> SCHEDULED
+           SCHEDULED --> CONFIRMED : PATCH /confirm
+       }
+       [*] --> Active : POST /appointments
+       Active --> CANCELLED : PATCH /cancel (before start)
+       Active --> COMPLETED : PATCH /complete (after start)
+       Active --> NO_SHOW : PATCH /no-show (after start)
+       COMPLETED --> [*]
+       CANCELLED --> [*]
+       NO_SHOW --> [*]
+   ```
 
-   `COMPLETED` (`PATCH /complete`) and `NO_SHOW` (`PATCH /no-show`, customer did not show up) can only be applied after the appointment's start time; `CANCELLED` (`PATCH /cancel`) only before it.
+   `COMPLETED`, `CANCELLED` and `NO_SHOW` (customer did not show up) are final states: the appointment can no longer be changed or rescheduled. `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time; `CANCELLED` only before it.
 5. **Deletions**: services and customers with appointments cannot be deleted (`409`). To remove a service from the catalogue, deactivate it (`active = false`).
+
+#### How a booking avoids conflicts, even under concurrent requests
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Customer
+    participant S as AppointmentService
+    participant DB as PostgreSQL
+
+    C->>S: POST /api/appointments
+    S->>DB: Load the service and the customer
+    S->>S: Compute endAt and check working hours
+    S->>DB: SELECT provider FOR UPDATE
+    Note over S,DB: Another request for the same provider waits here until this transaction ends
+    S->>DB: Look for overlapping appointments (except CANCELLED)
+    alt Slot taken
+        S-->>C: 409 Conflict
+    else Slot free
+        S->>DB: INSERT appointment
+        Note over DB: Exclusion constraint appointments_no_overlap, last line of defence against any other write
+        S-->>C: 201 Created
+    end
+```
 
 ### Getting started
 
