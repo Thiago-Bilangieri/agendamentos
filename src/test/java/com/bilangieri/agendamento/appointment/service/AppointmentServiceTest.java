@@ -8,6 +8,7 @@ import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
 import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
+import com.bilangieri.agendamento.exception.ConflictException;
 import com.bilangieri.agendamento.professional.service.WorkingHoursService;
 import com.bilangieri.agendamento.security.CurrentUserService;
 import com.bilangieri.agendamento.service.entity.Service;
@@ -103,7 +104,7 @@ class AppointmentServiceTest {
 
         assertThatThrownBy(() -> appointmentService.create(
                 new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("conflituoso");
 
         verify(appointmentRepository, never()).saveAndFlush(any());
@@ -119,7 +120,7 @@ class AppointmentServiceTest {
 
         assertThatThrownBy(() -> appointmentService.create(
                 new AppointmentCreateRequest(1L, 100L, LocalDateTime.now().plusDays(1), null)))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("conflituoso");
     }
 

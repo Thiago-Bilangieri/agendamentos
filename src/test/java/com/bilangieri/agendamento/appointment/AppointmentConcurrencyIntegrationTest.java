@@ -66,6 +66,6 @@ class AppointmentConcurrencyIntegrationTest extends IntegrationTest {
         }
 
         assertThat(statuses).filteredOn(status -> status == 201).hasSize(1);
-        assertThat(statuses).filteredOn(status -> status != 201).allMatch(status -> status == 400);
+        assertThat(statuses).filteredOn(status -> status != 201).allMatch(status -> status == 409);
     }
 }

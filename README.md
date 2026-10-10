@@ -116,7 +116,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
    - Não é possível agendar um serviço inativo ou de um prestador indisponível.
    - **Horário de trabalho**: o agendamento tem de caber inteiramente num dos blocos do horário do prestador nesse dia (ex.: um serviço de 60 min não pode começar às 12:30 se há pausa para almoço às 13:00). Um prestador sem horário definido não pode ser agendado.
    - **Horários livres**: `GET /api/services/{id}/availability?date=` devolve os inícios possíveis, de 30 em 30 minutos, com as mesmas regras da marcação. Qualquer horário devolvido pode ser marcado.
-   - **Conflitos de horário**: é rejeitado qualquer agendamento que se sobreponha a outro do mesmo prestador (exceto os `CANCELLED`). A mesma validação é aplicada no reagendamento. A regra é garantida também com pedidos simultâneos: as marcações do mesmo prestador são serializadas (`SELECT ... FOR UPDATE`) e uma *exclusion constraint* do PostgreSQL (`appointments_no_overlap`, migração V7) impede sobreposições ao nível da base de dados.
+   - **Conflitos de horário**: é rejeitado com `409` qualquer agendamento que se sobreponha a outro do mesmo prestador (exceto os `CANCELLED`). A mesma validação é aplicada no reagendamento. A regra é garantida também com pedidos simultâneos: as marcações do mesmo prestador são serializadas (`SELECT ... FOR UPDATE`) e uma *exclusion constraint* do PostgreSQL (`appointments_no_overlap`, migração V7) impede sobreposições ao nível da base de dados.
 4. **Estados do agendamento**:
 
    | De | Pode passar a |
@@ -318,8 +318,8 @@ Todos os erros seguem o formato **Problem Details** ([RFC 9457](https://www.rfc-
 
 ```json
 {
-  "title": "Regra de negócio violada",
-  "status": 400,
+  "title": "Conflito",
+  "status": 409,
   "detail": "O profissional já possui um agendamento conflituoso neste intervalo de horários.",
   "instance": "/api/appointments",
   "timestamp": "2026-10-09T20:15:00Z"
@@ -344,7 +344,7 @@ Nos erros de validação, `errors` indica o problema de cada campo:
 | `403` | Perfil sem permissão ou recurso de outro utilizador |
 | `404` | Recurso não encontrado |
 | `405` | Método HTTP não suportado no endpoint |
-| `409` | Conflito com o estado dos dados (ex.: remover um registo com agendamentos) |
+| `409` | Conflito com o estado dos dados (ex.: horário já ocupado, remover um registo com agendamentos) |
 | `500` | Erro inesperado: a resposta tem uma mensagem genérica e o detalhe fica apenas no log |
 
 ### Docker e integração contínua
@@ -509,7 +509,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
    - Inactive services and unavailable providers cannot be booked.
    - **Working hours**: the appointment must fit entirely inside one of the provider's schedule blocks for that day (e.g. a 60-minute service cannot start at 12:30 if there is a lunch break at 13:00). A provider without working hours cannot be booked.
    - **Free slots**: `GET /api/services/{id}/availability?date=` returns the possible start times, every 30 minutes, using the same rules as booking. Any returned slot can be booked.
-   - **Time conflicts**: any booking that overlaps another appointment of the same provider (except `CANCELLED` ones) is rejected. The same check applies when rescheduling. The rule also holds under concurrent requests: bookings for the same provider are serialised (`SELECT ... FOR UPDATE`) and a PostgreSQL *exclusion constraint* (`appointments_no_overlap`, migration V7) prevents overlaps at the database level.
+   - **Time conflicts**: any booking that overlaps another appointment of the same provider (except `CANCELLED` ones) is rejected with `409`. The same check applies when rescheduling. The rule also holds under concurrent requests: bookings for the same provider are serialised (`SELECT ... FOR UPDATE`) and a PostgreSQL *exclusion constraint* (`appointments_no_overlap`, migration V7) prevents overlaps at the database level.
 4. **Appointment lifecycle**:
 
    | From | Can become |
@@ -711,8 +711,8 @@ Every error uses the **Problem Details** format ([RFC 9457](https://www.rfc-edit
 
 ```json
 {
-  "title": "Regra de negócio violada",
-  "status": 400,
+  "title": "Conflito",
+  "status": 409,
   "detail": "O profissional já possui um agendamento conflituoso neste intervalo de horários.",
   "instance": "/api/appointments",
   "timestamp": "2026-10-09T20:15:00Z"
@@ -737,7 +737,7 @@ Validation errors list each field's problem in `errors`:
 | `403` | Role not allowed, or resource owned by another user |
 | `404` | Resource not found |
 | `405` | HTTP method not supported by the endpoint |
-| `409` | Conflict with the current data (e.g. deleting a record that has appointments) |
+| `409` | Conflict with the current data (e.g. time slot already taken, deleting a record that has appointments) |
 | `500` | Unexpected error: the response carries a generic message and the details only go to the log |
 
 > API messages are returned in Portuguese.

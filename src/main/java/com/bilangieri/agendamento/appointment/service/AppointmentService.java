@@ -9,6 +9,7 @@ import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
 import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
+import com.bilangieri.agendamento.exception.ConflictException;
 import com.bilangieri.agendamento.exception.NotFoundException;
 import com.bilangieri.agendamento.professional.service.WorkingHoursService;
 import com.bilangieri.agendamento.security.CurrentUserService;
@@ -69,7 +70,7 @@ public class AppointmentService {
         );
 
         if (!conflicts.isEmpty()) {
-            throw new BusinessException("O profissional já possui um agendamento conflituoso neste intervalo de horários.");
+            throw new ConflictException("O profissional já possui um agendamento conflituoso neste intervalo de horários.");
         }
 
         // 6. Criar e gravar o agendamento
@@ -137,7 +138,7 @@ public class AppointmentService {
 
         boolean hasConflict = conflicts.stream().anyMatch(a -> !a.getId().equals(id));
         if (hasConflict) {
-            throw new BusinessException("O profissional já possui um agendamento conflituoso neste novo horário.");
+            throw new ConflictException("O profissional já possui um agendamento conflituoso neste novo horário.");
         }
 
         appointment.setStartAt(startAt);
@@ -171,7 +172,7 @@ public class AppointmentService {
         } catch (DataIntegrityViolationException ex) {
             String cause = ex.getMostSpecificCause().getMessage();
             if (cause != null && cause.contains(OVERLAP_CONSTRAINT)) {
-                throw new BusinessException(conflictMessage);
+                throw new ConflictException(conflictMessage);
             }
             throw ex;
         }

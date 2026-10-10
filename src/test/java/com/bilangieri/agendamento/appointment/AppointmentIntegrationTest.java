@@ -49,7 +49,7 @@ class AppointmentIntegrationTest extends IntegrationTest {
         book(JOAO, customer(JOAO).getId(), corte.getId(), nextYearAt(10, 0)).andExpect(status().isCreated());
 
         book(MARIA, customer(MARIA).getId(), corte.getId(), nextYearAt(10, 30))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail", containsString("conflituoso")));
     }
 
