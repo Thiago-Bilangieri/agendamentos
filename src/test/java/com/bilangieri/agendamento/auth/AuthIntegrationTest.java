@@ -8,6 +8,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +33,27 @@ class AuthIntegrationTest extends IntegrationTest {
     @Test
     void loginWithWrongPasswordIsUnauthorized() throws Exception {
         login(JOAO, "wrong-password").andExpect(status().isUnauthorized());
+    }
+
+    // Email só deste teste: o bloqueio vive em memória e não é revertido com a transação
+    @Test
+    void repeatedWrongPasswordsLockTheEmailEvenForTheRightPassword() throws Exception {
+        String email = "brute.force@email.com";
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Alvo", "email": "%s", "password": "secret123", "phone": "912000000"}
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        for (int i = 0; i < 5; i++) {
+            login(email, "wrong-password").andExpect(status().isUnauthorized());
+        }
+
+        login(email, "secret123")
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.title").value("Demasiados pedidos"));
     }
 
     @Test

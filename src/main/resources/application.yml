@@ -43,6 +43,10 @@ api:
       # Mínimo de 32 caracteres (HMAC-SHA256)
       secret: ${JWT_SECRET}
       expiration: ${JWT_EXPIRATION:86400000}
+    login:
+      # Força bruta: após max-attempts passwords erradas, o email fica bloqueado durante lock-duration (429)
+      max-attempts: ${LOGIN_MAX_ATTEMPTS:5}
+      lock-duration: ${LOGIN_LOCK_DURATION:15m}
   admin:
     # Opcional: cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (ver AdminBootstrap)
     email: ${ADMIN_EMAIL:}

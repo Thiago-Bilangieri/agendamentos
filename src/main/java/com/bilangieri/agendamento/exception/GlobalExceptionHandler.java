@@ -48,6 +48,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.CONFLICT, "Conflito", ex.getMessage());
     }
 
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ProblemDetail> handleTooManyRequests(TooManyRequestsException ex) {
+        // Arredonda para cima: o cliente nunca deve voltar antes de o bloqueio expirar
+        long seconds = Math.max(1, ex.getRetryAfter().toSeconds() + (ex.getRetryAfter().toNanosPart() > 0 ? 1 : 0));
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
+                .body(problem(HttpStatus.TOO_MANY_REQUESTS, "Demasiados pedidos", ex.getMessage()));
+    }
+
     // Rede de segurança para violações de chaves estrangeiras/únicas não validadas antes
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {

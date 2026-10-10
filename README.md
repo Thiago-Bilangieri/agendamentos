@@ -423,6 +423,7 @@ Nos erros de validação, `errors` indica o problema de cada campo:
 | `404` | Recurso não encontrado |
 | `405` | Método HTTP não suportado no endpoint |
 | `409` | Conflito com o estado dos dados (ex.: horário já ocupado, remover um registo com agendamentos) |
+| `429` | Demasiadas tentativas de login falhadas para o mesmo email (header `Retry-After`) |
 | `500` | Erro inesperado: a resposta tem uma mensagem genérica e o detalhe fica apenas no log |
 
 ### Docker e integração contínua
@@ -458,6 +459,7 @@ Em desenvolvimento não é preciso configurar nada: o perfil `dev` é ativado au
 | `DB_USERNAME` / `DB_PASSWORD` | Credenciais da base de dados | ✅ |
 | `JWT_SECRET` | Chave de assinatura do JWT (mínimo 32 caracteres) | ✅ |
 | `JWT_EXPIRATION` | Validade do token em ms (por omissão `86400000`, 24 h) | ❌ |
+| `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_DURATION` | Proteção contra força bruta: passwords erradas permitidas por email e duração do bloqueio (por omissão `5` e `15m`) | ❌ |
 | `APP_TIME_ZONE` | Fuso dos horários do negócio (por omissão `Europe/Lisbon`). As datas da API não têm fuso e são locais a este | ❌ |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (password com 8+ caracteres). Nunca altera uma conta existente | No primeiro arranque |
 
@@ -895,6 +897,7 @@ Validation errors list each field's problem in `errors`:
 | `404` | Resource not found |
 | `405` | HTTP method not supported by the endpoint |
 | `409` | Conflict with the current data (e.g. time slot already taken, deleting a record that has appointments) |
+| `429` | Too many failed logins for the same email (`Retry-After` header) |
 | `500` | Unexpected error: the response carries a generic message and the details only go to the log |
 
 > API messages are returned in Portuguese.
@@ -932,6 +935,7 @@ Nothing needs to be configured for development: the `dev` profile is activated a
 | `DB_USERNAME` / `DB_PASSWORD` | Database credentials | ✅ |
 | `JWT_SECRET` | JWT signing key (at least 32 characters) | ✅ |
 | `JWT_EXPIRATION` | Token lifetime in ms (defaults to `86400000`, 24 h) | ❌ |
+| `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_DURATION` | Brute-force protection: wrong passwords allowed per email and lock duration (defaults to `5` and `15m`) | ❌ |
 | `APP_TIME_ZONE` | Business time zone (defaults to `Europe/Lisbon`). API dates carry no offset and are local to it | ❌ |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Creates the first ADMIN on startup if that email does not exist yet (password with 8+ characters). Never changes an existing account | On first start |
 

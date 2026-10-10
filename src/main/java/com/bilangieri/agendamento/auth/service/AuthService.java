@@ -12,6 +12,7 @@ import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
 import com.bilangieri.agendamento.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -31,20 +33,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-
-    public AuthService(
-            UserRepository userRepository,
-            CustomerRepository customerRepository,
-            PasswordEncoder passwordEncoder,
-            AuthenticationManager authenticationManager,
-            JwtService jwtService
-    ) {
-        this.userRepository = userRepository;
-        this.customerRepository = customerRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.authenticationManager = authenticationManager;
-        this.jwtService = jwtService;
-    }
+    private final LoginAttemptService loginAttemptService;
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -100,6 +89,8 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
 
+        loginAttemptService.checkAllowed(request.email());
+
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
@@ -108,9 +99,17 @@ public class AuthService {
                             request.password()
                     )
             );
+        } catch (BadCredentialsException e) {
+            loginAttemptService.recordFailure(request.email());
+            throw e;
         } catch (DisabledException e) {
-            throw disabledAccountException(request);
+            RuntimeException blocked = disabledAccountException(request);
+            if (blocked instanceof BadCredentialsException) {
+                loginAttemptService.recordFailure(request.email());
+            }
+            throw blocked;
         }
+        loginAttemptService.recordSuccess(request.email());
 
         User user = userRepository.findByEmail(
                 authentication.getName()

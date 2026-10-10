@@ -60,6 +60,7 @@ public class AuthController {
     @ApiResponse(responseCode = "200", description = "Autenticado")
     @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
     @ApiResponse(responseCode = "403", description = "Prestador pendente, rejeitado ou conta desativada")
+    @ApiResponse(responseCode = "429", description = "Demasiadas passwords erradas para este email; ver o header Retry-After")
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest request
     ) {
