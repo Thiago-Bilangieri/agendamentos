@@ -1,5 +1,6 @@
 package com.bilangieri.agendamento.config;
 
+import com.bilangieri.agendamento.user.Emails;
 import com.bilangieri.agendamento.user.entity.ApprovalStatus;
 import com.bilangieri.agendamento.user.entity.Role;
 import com.bilangieri.agendamento.user.entity.User;
@@ -36,7 +37,7 @@ public class AdminBootstrap implements ApplicationRunner {
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.email = email;
+        this.email = Emails.normalize(email);
         this.password = password;
     }
 

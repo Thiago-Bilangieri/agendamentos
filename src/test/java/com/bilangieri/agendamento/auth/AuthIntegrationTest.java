@@ -54,6 +54,22 @@ class AuthIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void loginIgnoresEmailCaseAndSurroundingSpaces() throws Exception {
+        login("  " + JOAO.toUpperCase() + " ", "password").andExpect(status().isOk());
+    }
+
+    @Test
+    void registerRejectsAnExistingEmailWithDifferentCase() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Outro João", "email": "%s", "password": "secret123", "phone": "912000000"}
+                                """.formatted(JOAO.toUpperCase())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("Já existe um utilizador")));
+    }
+
+    @Test
     void registeredProfessionalWaitsForApproval() throws Exception {
         mockMvc.perform(post("/api/auth/register/professional")
                         .contentType(MediaType.APPLICATION_JSON)

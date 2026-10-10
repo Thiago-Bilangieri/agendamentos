@@ -1,5 +1,6 @@
 package com.bilangieri.agendamento.customer.dto;
 
+import com.bilangieri.agendamento.user.Emails;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
@@ -16,4 +17,8 @@ public record CustomerUpdateRequest(
 
         String notes
 ) {
+
+    public CustomerUpdateRequest {
+        email = Emails.normalize(email);
+    }
 }

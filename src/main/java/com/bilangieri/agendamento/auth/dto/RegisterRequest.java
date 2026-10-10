@@ -1,5 +1,6 @@
 package com.bilangieri.agendamento.auth.dto;
 
+import com.bilangieri.agendamento.user.Emails;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
@@ -19,4 +20,8 @@ public record RegisterRequest(
         String phone
 
 ) {
+
+    public RegisterRequest {
+        email = Emails.normalize(email);
+    }
 }
