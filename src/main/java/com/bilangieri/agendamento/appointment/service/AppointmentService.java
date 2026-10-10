@@ -123,32 +123,44 @@ public class AppointmentService {
         }
 
         LocalDateTime startAt = request.startAt();
-        LocalDateTime endAt = startAt.plusMinutes(appointment.getService().getDurationMinutes());
 
         if (request.status() != appointment.getStatus()) {
             validateTransition(appointment.getStatus(), request.status(), startAt);
         }
-        checkWorkingHours(appointment.getProfessional().getId(), startAt, endAt);
 
-        // Validar conflitos ignorando o próprio agendamento atual
-        userRepository.lockById(appointment.getProfessional().getId());
-        List<Appointment> conflicts = appointmentRepository.findConflictingAppointments(
-                appointment.getProfessional().getId(), startAt, endAt
-        );
-
-        boolean hasConflict = conflicts.stream().anyMatch(a -> !a.getId().equals(id));
-        if (hasConflict) {
-            throw new ConflictException("O profissional já possui um agendamento conflituoso neste novo horário.");
+        // As regras de horário só se aplicam a um reagendamento: alterar apenas as notas ou o estado
+        // de um agendamento que já começou tem de continuar a ser possível
+        if (!startAt.equals(appointment.getStartAt())) {
+            reschedule(appointment, startAt);
         }
 
-        appointment.setStartAt(startAt);
-        appointment.setEndAt(endAt);
         appointment.setStatus(request.status());
         appointment.setNotes(request.notes());
 
         Appointment updated = saveCheckingOverlap(appointment,
                 "O profissional já possui um agendamento conflituoso neste novo horário.");
         return AppointmentResponse.fromEntity(updated);
+    }
+
+    private void reschedule(Appointment appointment, LocalDateTime startAt) {
+        if (!startAt.isAfter(LocalDateTime.now())) {
+            throw new BusinessException("A data de início deve ser no futuro");
+        }
+
+        LocalDateTime endAt = startAt.plusMinutes(appointment.getService().getDurationMinutes());
+        Long professionalId = appointment.getProfessional().getId();
+        checkWorkingHours(professionalId, startAt, endAt);
+
+        // Validar conflitos ignorando o próprio agendamento atual
+        userRepository.lockById(professionalId);
+        boolean hasConflict = appointmentRepository.findConflictingAppointments(professionalId, startAt, endAt)
+                .stream().anyMatch(a -> !a.getId().equals(appointment.getId()));
+        if (hasConflict) {
+            throw new ConflictException("O profissional já possui um agendamento conflituoso neste novo horário.");
+        }
+
+        appointment.setStartAt(startAt);
+        appointment.setEndAt(endAt);
     }
 
     @Transactional

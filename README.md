@@ -283,7 +283,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 | GET | `/api/appointments` 📄 | Todos | Lista agendamentos conforme o perfil |
 | GET | `/api/appointments/{id}` | Todos (dono) | Detalhe de um agendamento |
 | POST | `/api/appointments` | ADMIN, CUSTOMER | Cria um agendamento. O cliente pode omitir o `customerId` (marca sempre para si próprio); o ADMIN tem de o indicar |
-| PUT | `/api/appointments/{id}` | ADMIN | Reagenda / altera estado e notas |
+| PUT | `/api/appointments/{id}` | ADMIN | Reagenda / altera estado e notas. Um novo horário tem de ser no futuro; com o mesmo `startAt` só mudam o estado e as notas (também num agendamento que já começou) |
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirma |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marca como concluído |
 | PATCH | `/api/appointments/{id}/no-show` | ADMIN, PROFESSIONAL | Marca a falta do cliente |
@@ -676,7 +676,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 | GET | `/api/appointments` 📄 | All | Lists appointments according to the caller's role |
 | GET | `/api/appointments/{id}` | All (owner) | Appointment details |
 | POST | `/api/appointments` | ADMIN, CUSTOMER | Books an appointment. Customers may omit `customerId` (they always book for themselves); ADMIN must send it |
-| PUT | `/api/appointments/{id}` | ADMIN | Reschedules / changes status and notes |
+| PUT | `/api/appointments/{id}` | ADMIN | Reschedules / changes status and notes. A new time must be in the future; keeping the same `startAt` only changes status and notes (also for an appointment that already started) |
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirms |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marks as completed |
 | PATCH | `/api/appointments/{id}/no-show` | ADMIN, PROFESSIONAL | Marks the customer as a no-show |

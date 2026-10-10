@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -233,6 +234,34 @@ class AppointmentIntegrationTest extends IntegrationTest {
         mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(JOAO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail", containsString("já começou")));
+    }
+
+    @Test
+    void adminUpdatesNotesOfAppointmentThatAlreadyStarted() throws Exception {
+        LocalDateTime startAt = LocalDateTime.now().minusHours(1).withNano(0);
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), startAt, AppointmentStatus.CONFIRMED);
+
+        mockMvc.perform(put("/api/appointments/{id}", appointment.getId())
+                        .header("Authorization", bearer(ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"startAt":"%s","status":"COMPLETED","notes":"Correu bem"}""".formatted(startAt)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.notes").value("Correu bem"));
+    }
+
+    @Test
+    void adminCannotRescheduleToThePast() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(put("/api/appointments/{id}", appointment.getId())
+                        .header("Authorization", bearer(ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"startAt":"%s","status":"SCHEDULED"}""".formatted(LocalDateTime.now().minusDays(1).withNano(0))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("no futuro")));
     }
 
     @Test

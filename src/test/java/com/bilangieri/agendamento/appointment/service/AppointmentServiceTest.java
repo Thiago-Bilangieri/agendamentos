@@ -2,6 +2,7 @@ package com.bilangieri.agendamento.appointment.service;
 
 import com.bilangieri.agendamento.appointment.dto.AppointmentCreateRequest;
 import com.bilangieri.agendamento.appointment.dto.AppointmentResponse;
+import com.bilangieri.agendamento.appointment.dto.AppointmentUpdateRequest;
 import com.bilangieri.agendamento.appointment.entity.Appointment;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
 import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
@@ -272,5 +273,48 @@ class AppointmentServiceTest {
         AppointmentResponse response = appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED);
 
         assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+    }
+
+    @Test
+    void updatesNotesOfAppointmentThatAlreadyStartedWithoutRescheduling() {
+        loggedInAs(Role.ADMIN);
+        LocalDateTime startAt = LocalDateTime.now().minusHours(1);
+        existingAppointment(AppointmentStatus.CONFIRMED, startAt);
+        when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AppointmentResponse response = appointmentService.update(50L,
+                new AppointmentUpdateRequest(startAt, AppointmentStatus.COMPLETED, "Correu bem"));
+
+        assertThat(response.notes()).isEqualTo("Correu bem");
+        assertThat(response.status()).isEqualTo(AppointmentStatus.COMPLETED);
+        // Sem reagendamento não há verificação de horário nem de conflitos
+        verify(appointmentRepository, never()).findConflictingAppointments(any(), any(), any());
+    }
+
+    @Test
+    void cannotRescheduleToThePast() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.SCHEDULED, LocalDateTime.now().plusDays(1));
+
+        assertThatThrownBy(() -> appointmentService.update(50L,
+                new AppointmentUpdateRequest(LocalDateTime.now().minusDays(1), AppointmentStatus.SCHEDULED, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("no futuro");
+
+        verify(appointmentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void reschedulingStillChecksConflicts() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.SCHEDULED, LocalDateTime.now().plusDays(1));
+        LocalDateTime newStart = LocalDateTime.now().plusDays(2);
+        Appointment other = Appointment.builder().id(51L).build();
+        when(appointmentRepository.findConflictingAppointments(10L, newStart, newStart.plusMinutes(45)))
+                .thenReturn(List.of(other));
+
+        assertThatThrownBy(() -> appointmentService.update(50L,
+                new AppointmentUpdateRequest(newStart, AppointmentStatus.SCHEDULED, null)))
+                .isInstanceOf(ConflictException.class);
     }
 }
