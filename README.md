@@ -125,7 +125,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
    | `CONFIRMED` | `COMPLETED`, `CANCELLED`, `NO_SHOW` |
    | `COMPLETED`, `CANCELLED`, `NO_SHOW` | — (estados finais: o agendamento deixa de poder ser alterado ou reagendado) |
 
-   `COMPLETED` (`PATCH /complete`) e `NO_SHOW` (`PATCH /no-show`, falta do cliente) só podem ser aplicados depois da hora de início do agendamento.
+   `COMPLETED` (`PATCH /complete`) e `NO_SHOW` (`PATCH /no-show`, falta do cliente) só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` (`PATCH /cancel`) só antes dela.
 5. **Remoções**: serviços e clientes com agendamentos associados não podem ser removidos (`409`). Para retirar um serviço do catálogo, desative-o (`active = false`).
 
 ### Como executar
@@ -518,7 +518,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
    | `CONFIRMED` | `COMPLETED`, `CANCELLED`, `NO_SHOW` |
    | `COMPLETED`, `CANCELLED`, `NO_SHOW` | — (final states: the appointment can no longer be changed or rescheduled) |
 
-   `COMPLETED` (`PATCH /complete`) and `NO_SHOW` (`PATCH /no-show`, customer did not show up) can only be applied after the appointment's start time.
+   `COMPLETED` (`PATCH /complete`) and `NO_SHOW` (`PATCH /no-show`, customer did not show up) can only be applied after the appointment's start time; `CANCELLED` (`PATCH /cancel`) only before it.
 5. **Deletions**: services and customers with appointments cannot be deleted (`409`). To remove a service from the catalogue, deactivate it (`active = false`).
 
 ### Getting started

@@ -51,4 +51,13 @@ class AppointmentStatusTest {
         assertThat(CONFIRMED.requiresStarted()).isFalse();
         assertThat(CANCELLED.requiresStarted()).isFalse();
     }
+
+    @Test
+    void onlyCancelledRequiresTheAppointmentNotToHaveStarted() {
+        assertThat(CANCELLED.requiresNotStarted()).isTrue();
+        assertThat(SCHEDULED.requiresNotStarted()).isFalse();
+        assertThat(CONFIRMED.requiresNotStarted()).isFalse();
+        assertThat(COMPLETED.requiresNotStarted()).isFalse();
+        assertThat(NO_SHOW.requiresNotStarted()).isFalse();
+    }
 }

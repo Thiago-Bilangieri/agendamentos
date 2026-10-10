@@ -250,4 +250,27 @@ class AppointmentServiceTest {
 
         assertThat(response.status()).isEqualTo(AppointmentStatus.COMPLETED);
     }
+
+    @Test
+    void cannotCancelAppointmentThatAlreadyStarted() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.SCHEDULED, LocalDateTime.now().minusDays(1));
+
+        assertThatThrownBy(() -> appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("já começou");
+
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelsFutureAppointment() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.CONFIRMED, LocalDateTime.now().plusDays(1));
+        when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AppointmentResponse response = appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED);
+
+        assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+    }
 }

@@ -192,6 +192,10 @@ public class AppointmentService {
         if (target.requiresStarted() && startAt.isAfter(LocalDateTime.now())) {
             throw new BusinessException("Não é possível marcar como " + target + " um agendamento que ainda não começou.");
         }
+
+        if (target.requiresNotStarted() && !startAt.isAfter(LocalDateTime.now())) {
+            throw new BusinessException("Não é possível cancelar um agendamento que já começou.");
+        }
     }
 
     // Um CUSTOMER marca sempre para si próprio (o customerId é opcional e, se vier, tem de ser o seu);

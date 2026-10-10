@@ -226,6 +226,16 @@ class AppointmentIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void customerCannotCancelAppointmentThatAlreadyStarted() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"),
+                LocalDateTime.now().minusDays(2).withNano(0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("já começou")));
+    }
+
+    @Test
     void futureAppointmentCannotBeCompleted() throws Exception {
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.CONFIRMED);
 

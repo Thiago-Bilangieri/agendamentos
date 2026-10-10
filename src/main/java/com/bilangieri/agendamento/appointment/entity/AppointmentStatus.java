@@ -24,4 +24,9 @@ public enum AppointmentStatus {
     public boolean requiresStarted() {
         return this == COMPLETED || this == NO_SHOW;
     }
+
+    // Depois de começar, o desfecho é COMPLETED ou NO_SHOW: cancelar só antes da hora de início
+    public boolean requiresNotStarted() {
+        return this == CANCELLED;
+    }
 }
