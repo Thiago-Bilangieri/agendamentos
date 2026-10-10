@@ -457,6 +457,7 @@ A configuração está separada por perfis do Spring:
 |---|---|---|
 | `application.yml` | todos | Configuração base. **Não contém segredos**: lê-os de variáveis de ambiente. |
 | `application-dev.yml` | `dev` (**ativo por omissão**) | Credenciais locais, chave JWT de desenvolvimento, SQL e logs de debug, dados de teste. |
+| `application-demo.yml` | `demo` | Demo pública (Render + Neon, ver `render.yaml`): configuração de produção com os dados de teste e suporte ao HTTPS do proxy. |
 
 Em desenvolvimento não é preciso configurar nada: o perfil `dev` é ativado automaticamente.
 
@@ -943,6 +944,7 @@ Configuration is split by Spring profile:
 |---|---|---|
 | `application.yml` | all | Base configuration. **Holds no secrets**: reads them from environment variables. |
 | `application-dev.yml` | `dev` (**active by default**) | Local credentials, development JWT key, SQL and debug logging, test data. |
+| `application-demo.yml` | `demo` | Public demo (Render + Neon, see `render.yaml`): production configuration plus test data and support for the proxy's HTTPS. |
 
 Nothing needs to be configured for development: the `dev` profile is activated automatically.
 

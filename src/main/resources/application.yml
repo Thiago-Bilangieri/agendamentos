@@ -1,6 +1,10 @@
 # Configuração base, segura para produção: não contém segredos.
 # Os valores sensíveis vêm de variáveis de ambiente; sem elas a aplicação não arranca.
 # Para desenvolvimento local, o perfil "dev" (application-dev.yml) é ativado por omissão.
+server:
+  # Plataformas como o Render indicam a porta na variável PORT
+  port: ${PORT:8080}
+
 spring:
   application:
     name: agendamento

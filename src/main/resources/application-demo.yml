@@ -1,0 +1,15 @@
+# Perfil da demo pública (Render + Neon, ver render.yaml).
+# É configuração de produção (segredos por variáveis de ambiente, sem SQL nos logs)
+# mais os dados de teste, para quem visita conseguir experimentar a API com os utilizadores do README.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/testdata
+
+  datasource:
+    hikari:
+      # Plano gratuito do Neon: poucas ligações chegam e poupam memória
+      maximum-pool-size: 5
+
+server:
+  # O Render termina o HTTPS no proxy: sem isto o Swagger gera URLs http:// e os pedidos falham
+  forward-headers-strategy: framework

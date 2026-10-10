@@ -1,0 +1,26 @@
+# Blueprint do Render: demo pública da API no plano gratuito.
+# A base de dados é um PostgreSQL gratuito no Neon (o do Render expira ao fim de 30 dias).
+# DB_URL, DB_USERNAME e DB_PASSWORD são pedidos no painel ao criar o Blueprint (sync: false).
+services:
+  - type: web
+    name: agendamento-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /actuator/health/readiness
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: demo
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      # 512 MB e pouco CPU: heap mais contida, GC simples e arranque mais rápido
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1
