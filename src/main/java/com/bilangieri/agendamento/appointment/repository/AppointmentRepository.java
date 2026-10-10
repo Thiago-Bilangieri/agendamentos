@@ -37,14 +37,13 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     boolean existsByCustomerId(Long customerId);
 
-    // Query customizada para verificar conflitos de horário para o mesmo profissional.
-    // O conflito ocorre se já existir um agendamento para o mesmo profissional onde:
-    // O início do agendamento existente é anterior ao fim do novo E o fim do existente é posterior ao início do novo.
-    // Excluímos agendamentos cancelados da validação, se pretendido, mas por segurança validamos todos os ativos.
+    // Agendamentos do prestador que se sobrepõem ao intervalo [startAt, endAt): o existente começa antes do fim
+    // do novo e acaba depois do início do novo. Os CANCELLED não ocupam horário; todos os outros estados ocupam.
+    // É a mesma regra da restrição appointments_no_overlap (V7).
     @Query("""
-        SELECT a FROM Appointment a 
-        WHERE a.professional.id = :professionalId 
-        AND a.status <> 'CANCELLED'
+        SELECT a FROM Appointment a
+        WHERE a.professional.id = :professionalId
+        AND a.status <> com.bilangieri.agendamento.appointment.entity.AppointmentStatus.CANCELLED
         AND (a.startAt < :endAt AND a.endAt > :startAt)
     """)
     List<Appointment> findConflictingAppointments(
