@@ -1,0 +1,85 @@
+### Fluxo completo da API, para o HTTP Client do IntelliJ (ou do VS Code com a extensão REST Client)
+### Pré-requisito: a API a correr no perfil dev (dados de teste). Execute os pedidos por ordem:
+### os tokens e o id do agendamento ficam guardados para os pedidos seguintes.
+
+@baseUrl = http://localhost:8080
+
+### 1. Login como cliente (João)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "joao.silva@email.com", "password": "password"}
+
+> {% client.global.set("customerToken", response.body.token); %}
+
+### 2. Categorias de serviços
+GET {{baseUrl}}/api/categories
+Authorization: Bearer {{customerToken}}
+
+### 3. Catálogo: serviços de cabelo com "corte" no nome, ordenados por preço
+GET {{baseUrl}}/api/services?categoryId=1&name=corte&sort=price,asc
+Authorization: Bearer {{customerToken}}
+
+### 4. Horários livres do serviço 2 numa quarta-feira
+GET {{baseUrl}}/api/services/2/availability?date=2030-01-16
+Authorization: Bearer {{customerToken}}
+
+### 5. Marcar um dos horários devolvidos (o cliente não indica o customerId: marca para si próprio)
+POST {{baseUrl}}/api/appointments
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"serviceId": 2, "startAt": "2030-01-16T10:00:00", "notes": "Primeira visita"}
+
+> {% client.global.set("appointmentId", response.body.id); %}
+
+### 6. O mesmo horário outra vez: 409 Conflict em Problem Details
+POST {{baseUrl}}/api/appointments
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"serviceId": 2, "startAt": "2030-01-16T10:15:00"}
+
+### 7. Os meus agendamentos (paginado)
+GET {{baseUrl}}/api/appointments?page=0&size=10&sort=startAt,desc
+Authorization: Bearer {{customerToken}}
+
+### 8. Login como prestadora (Ana)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "ana.ribeiro@agendamento.com", "password": "password"}
+
+> {% client.global.set("professionalToken", response.body.token); %}
+
+### 9. A prestadora confirma o agendamento
+PATCH {{baseUrl}}/api/appointments/{{appointmentId}}/confirm
+Authorization: Bearer {{professionalToken}}
+
+### 10. O cliente cancela (só é possível antes da hora de início); o horário fica livre
+PATCH {{baseUrl}}/api/appointments/{{appointmentId}}/cancel
+Authorization: Bearer {{customerToken}}
+
+### 11. Prestador pendente: o login é recusado com 403 e o motivo
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "diogo.ferreira@agendamento.com", "password": "password"}
+
+### 12. Login como ADMIN
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "admin@agendamento.com", "password": "password"}
+
+> {% client.global.set("adminToken", response.body.token); %}
+
+### 13. Prestadores a aguardar aprovação
+GET {{baseUrl}}/api/admin/professionals?status=PENDING
+Authorization: Bearer {{adminToken}}
+
+### 14. Pedido sem token: 401 em Problem Details
+GET {{baseUrl}}/api/appointments
+
+### 15. Health check (público)
+GET {{baseUrl}}/actuator/health

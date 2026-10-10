@@ -23,6 +23,14 @@ API REST para **agendamento de serviços** entre clientes e prestadores (cabelei
 - **Prevenção de conflitos de horário**: um prestador nunca tem dois agendamentos sobrepostos.
 - **Autenticação stateless com JWT** e documentação interativa com **Swagger UI**.
 
+### Decisões técnicas em destaque
+
+- **Sem marcações duplicadas, mesmo em concorrência**: lock pessimista no prestador (`SELECT ... FOR UPDATE`) e, na base de dados, uma *exclusion constraint* `EXCLUDE USING gist` sobre `tsrange(start_at, end_at)`. Um teste dispara pedidos simultâneos para o mesmo horário e verifica que só um é aceite.
+- **Sem N+1**: as listagens carregam as relações com `@EntityGraph`, há `open-in-view: false` e um teste conta as queries SQL de cada pedido.
+- **Erros uniformes** em [Problem Details (RFC 9457)](https://www.rfc-editor.org/rfc/rfc9457), incluindo os 401/403 da camada de segurança e o 429 de proteção contra força bruta no login.
+- **Regras de tempo testáveis**: um `Clock` injetado no fuso do negócio, em vez de `LocalDateTime.now()` dependente do fuso da JVM, e uma máquina de estados explícita para o agendamento.
+- **Pronta para produção**: segredos só por variáveis de ambiente (sem eles a aplicação não arranca), esquema gerido pelo Flyway, health probes, imagem Docker multi-stage sem root e CI com Testcontainers (PostgreSQL real) e relatório de cobertura.
+
 ### Funcionalidades
 
 | Módulo | O que faz |
@@ -369,6 +377,8 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 
 #### Exemplo de utilização
 
+O ficheiro [`requests.http`](requests.http) tem o fluxo completo (login, catálogo, disponibilidade, marcação, conflito 409, confirmação e cancelamento), pronto a executar no HTTP Client do IntelliJ ou na extensão REST Client do VS Code.
+
 ```bash
 # 1. Login
 curl -X POST http://localhost:8080/api/auth/login \
@@ -429,7 +439,7 @@ Nos erros de validação, `errors` indica o problema de cada campo:
 ### Docker e integração contínua
 
 - **`Dockerfile`** multi-stage: compila com o JDK 21 e corre só com o JRE, como utilizador sem privilégios, com o jar separado em camadas (dependências / código) para builds mais rápidos.
-- **GitHub Actions** (`.github/workflows/ci.yml`): a cada push e pull request para a `main`, corre todos os testes (os de integração usam Testcontainers no Docker do runner) publica o relatório de cobertura (JaCoCo) e constrói a imagem. Localmente: `./mvnw verify` gera `target/site/jacoco/index.html`.
+- **GitHub Actions** (`.github/workflows/ci.yml`): a cada push e pull request para a `main`, corre todos os testes (os de integração usam Testcontainers no Docker do runner), publica o relatório de cobertura (JaCoCo) e constrói a imagem. Localmente: `./mvnw verify` gera `target/site/jacoco/index.html`.
 
 Para produção, use a imagem com o perfil `prod` e as variáveis de ambiente descritas abaixo:
 
@@ -496,6 +506,14 @@ REST API for **service scheduling** between customers and service providers (hai
 - **Data ownership**: each user can only see and change what belongs to them.
 - **Double-booking prevention**: a provider can never have two overlapping appointments.
 - **Stateless JWT authentication** and interactive documentation with **Swagger UI**.
+
+### Technical highlights
+
+- **No double booking, even under concurrency**: a pessimistic lock on the provider (`SELECT ... FOR UPDATE`) and, in the database, an `EXCLUDE USING gist` constraint over `tsrange(start_at, end_at)`. A test fires simultaneous requests for the same slot and checks that only one succeeds.
+- **No N+1**: list endpoints fetch relations with `@EntityGraph`, `open-in-view` is off and a test counts the SQL queries per request.
+- **Uniform errors** as [Problem Details (RFC 9457)](https://www.rfc-editor.org/rfc/rfc9457), including the security layer's 401/403 and the 429 from login brute-force protection.
+- **Testable time rules**: an injected `Clock` in the business time zone instead of a JVM-zone `LocalDateTime.now()`, and an explicit state machine for appointments.
+- **Production-ready**: secrets only through environment variables (the app refuses to start without them), Flyway-managed schema, health probes, a non-root multi-stage Docker image, and CI with Testcontainers (real PostgreSQL) plus a coverage report.
 
 ### Features
 
@@ -843,6 +861,8 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 
 #### Usage example
 
+The [`requests.http`](requests.http) file has the full flow (login, catalogue, availability, booking, 409 conflict, confirmation and cancellation), ready to run in the IntelliJ HTTP Client or the VS Code REST Client extension.
+
 ```bash
 # 1. Log in
 curl -X POST http://localhost:8080/api/auth/login \
@@ -961,4 +981,4 @@ java -jar target/agendamento-0.0.1-SNAPSHOT.jar
 
 ---
 
-Desenvolvido por / Developed by **[Thiago Bilangieri](https://github.com/Thiago-Bilangieri)**
+Desenvolvido por / Developed by **[Thiago Bilangieri](https://github.com/Thiago-Bilangieri)** · [MIT License](LICENSE)
