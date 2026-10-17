@@ -30,9 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -41,6 +43,8 @@ import java.util.stream.Collectors;
 public class AppointmentService {
 
     private static final String OVERLAP_CONSTRAINT = "appointments_no_overlap";
+    private static final Set<AppointmentStatus> ACTIVE_STATUSES =
+            EnumSet.of(AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED);
 
     private final AppointmentRepository appointmentRepository;
     private final AppointmentStatusHistoryRepository statusHistoryRepository;
@@ -222,6 +226,25 @@ public class AppointmentService {
     @Transactional
     public AppointmentResponse cancel(Long id, String reason) {
         return changeStatus(id, AppointmentStatus.CANCELLED, reason);
+    }
+
+    // Eliminação da conta do cliente: cancela as marcações ativas que ainda não começaram, com o motivo no histórico.
+    // As passadas ficam como estão (histórico do prestador)
+    @Transactional
+    public void cancelUpcomingOfCustomer(Long customerId, String reason) {
+        List<Appointment> upcoming = appointmentRepository.findByCustomerIdAndStatusInAndStartAtAfter(
+                customerId, ACTIVE_STATUSES, LocalDateTime.now(clock));
+        for (Appointment appointment : upcoming) {
+            AppointmentStatus previousStatus = appointment.getStatus();
+            appointment.setStatus(AppointmentStatus.CANCELLED);
+            recordStatusChange(appointment, previousStatus, reason);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasUpcomingForProfessional(Long professionalId) {
+        return appointmentRepository.existsByProfessionalIdAndStatusInAndStartAtAfter(
+                professionalId, ACTIVE_STATUSES, LocalDateTime.now(clock));
     }
 
     private AppointmentResponse changeStatus(Long id, AppointmentStatus status, String reason) {

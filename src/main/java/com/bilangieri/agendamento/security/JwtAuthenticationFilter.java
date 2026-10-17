@@ -1,6 +1,9 @@
 package com.bilangieri.agendamento.security;
 
 import com.bilangieri.agendamento.auth.service.JwtService;
+import com.bilangieri.agendamento.user.service.AccountUserDetails;
+import com.bilangieri.agendamento.user.service.CustomUserDetailsService;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -29,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -46,9 +47,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void authenticate(String token, HttpServletRequest request) {
         try {
-            // A conta é lida a cada pedido: desativar um utilizador corta o acesso mesmo com um token ainda válido
-            UserDetails user = userDetailsService.loadUserByUsername(jwtService.extractSubject(token));
-            if (!user.isEnabled()) {
+            // A conta é lida a cada pedido: desativar um utilizador corta o acesso mesmo com um token ainda válido.
+            // Mudar o email ou a password invalida os tokens emitidos antes (as outras sessões caem)
+            Claims claims = jwtService.extractClaims(token);
+            AccountUserDetails user = userDetailsService.loadUserByUsername(claims.getSubject());
+            if (!user.isEnabled() || !user.acceptsTokenIssuedAt(claims.getIssuedAt())) {
                 return;
             }
 

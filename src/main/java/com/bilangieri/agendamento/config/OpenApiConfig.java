@@ -20,6 +20,7 @@ public class OpenApiConfig {
 
     // Nomes usados em @Tag nos controllers; a ordem aqui é a ordem no Swagger UI
     public static final String TAG_AUTH = "Autenticação";
+    public static final String TAG_PROFILE = "O meu perfil";
     public static final String TAG_SERVICES = "Serviços";
     public static final String TAG_CATEGORIES = "Categorias";
     public static final String TAG_PROFESSIONALS = "Prestadores";
@@ -51,6 +52,7 @@ public class OpenApiConfig {
                         )
                 .tags(List.of(
                         new Tag().name(TAG_AUTH).description("Registo e login (públicos)"),
+                        new Tag().name(TAG_PROFILE).description("Dados, email, password e eliminação da conta do utilizador autenticado"),
                         new Tag().name(TAG_SERVICES).description("Catálogo de serviços, filtros e horários livres"),
                         new Tag().name(TAG_CATEGORIES).description("Categorias de serviços"),
                         new Tag().name(TAG_PROFESSIONALS).description("Horário de trabalho dos prestadores"),

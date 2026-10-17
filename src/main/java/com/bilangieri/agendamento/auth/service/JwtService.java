@@ -1,5 +1,6 @@
 package com.bilangieri.agendamento.auth.service;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -35,15 +36,14 @@ public class JwtService {
     }
 
     /**
-     * Devolve o subject (email) de um token válido. A assinatura e a expiração são verificadas pelo parser:
-     * um token adulterado, malformado ou expirado lança JwtException.
+     * Devolve as claims de um token válido: subject (email) e iat. A assinatura e a expiração são verificadas
+     * pelo parser: um token adulterado, malformado ou expirado lança JwtException.
      */
-    public String extractSubject(String token) throws JwtException {
+    public Claims extractClaims(String token) throws JwtException {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+                .getPayload();
     }
 }

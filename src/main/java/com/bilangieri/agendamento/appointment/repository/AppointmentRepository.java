@@ -1,6 +1,7 @@
 package com.bilangieri.agendamento.appointment.repository;
 
 import com.bilangieri.agendamento.appointment.entity.Appointment;
+import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -10,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +38,12 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     boolean existsByServiceId(Long serviceId);
 
     boolean existsByCustomerId(Long customerId);
+
+    List<Appointment> findByCustomerIdAndStatusInAndStartAtAfter(
+            Long customerId, Collection<AppointmentStatus> statuses, LocalDateTime startAt);
+
+    boolean existsByProfessionalIdAndStatusInAndStartAtAfter(
+            Long professionalId, Collection<AppointmentStatus> statuses, LocalDateTime startAt);
 
     // Agendamentos do prestador que se sobrepõem ao intervalo [startAt, endAt): o existente começa antes do fim
     // do novo e acaba depois do início do novo. Os CANCELLED não ocupam horário; todos os outros estados ocupam.

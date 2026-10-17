@@ -28,6 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
+    // Mesma resposta em todos os pontos onde um email novo entra (registo e mudança de email no perfil)
+    public static final String EMAIL_IN_USE = "Já existe um utilizador com este email.";
+
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
@@ -80,9 +83,9 @@ public class AuthService {
                 .build());
     }
 
-    private void validateEmailAvailable(String email) {
+    public void validateEmailAvailable(String email) {
         if (userRepository.findByEmail(email).isPresent()) {
-            throw new BusinessException("Já existe um utilizador com este email.");
+            throw new BusinessException(EMAIL_IN_USE);
         }
     }
 

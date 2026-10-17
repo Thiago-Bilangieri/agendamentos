@@ -98,9 +98,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
 
+        return ResponseEntity.badRequest().body(invalidFields(errors));
+    }
+
+    @ExceptionHandler(FieldValidationException.class)
+    public ProblemDetail handleFieldValidation(FieldValidationException ex) {
+        return invalidFields(Map.of(ex.getField(), ex.getMessage()));
+    }
+
+    private ProblemDetail invalidFields(Map<String, String> errors) {
         ProblemDetail body = problem(HttpStatus.BAD_REQUEST, "Dados inválidos", "Um ou mais campos são inválidos.");
         body.setProperty("errors", errors);
-        return ResponseEntity.badRequest().body(body);
+        return body;
     }
 
     // Rota inexistente: a mensagem por omissão ("No static resource ...") não faz sentido numa API

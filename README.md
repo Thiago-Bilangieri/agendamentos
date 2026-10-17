@@ -39,7 +39,8 @@ API REST para **agendamento de serviços** entre clientes e prestadores (cabelei
 
 | Módulo | O que faz |
 |---|---|
-| **Autenticação** | Registo de clientes e de prestadores, login com emissão de token JWT. |
+| **Autenticação** | Registo de clientes e de prestadores, login com emissão de token JWT e política de password. |
+| **O meu perfil** | Cada utilizador consulta e edita os seus dados, muda o email ou a password (as outras sessões caem) e elimina a conta (RGPD). |
 | **Administração** | Listagem de prestadores por estado (`PENDING`, `APPROVED`, `REJECTED`), aprovação e rejeição. |
 | **Serviços** | CRUD de serviços (nome, descrição, preço, duração). Cada serviço pertence a um prestador e pode ter uma categoria. Catálogo pesquisável por prestador, categoria e nome. |
 | **Categorias** | Categorias de serviços (ex.: Cabelo, Barbearia, Estética), geridas pelo ADMIN. |
@@ -152,6 +153,8 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
 | Aprovar / rejeitar prestadores | ✅ | ❌ | ❌ |
 | Gerir clientes | ✅ | ❌ | ❌ |
 | Ver o próprio perfil de cliente | ❌ | ❌ | ✅ |
+| Editar o próprio perfil, mudar email e password | ✅ | ✅ | ✅ |
+| Eliminar a própria conta | ❌ | ✅ (sem marcações futuras) | ✅ |
 | Listar serviços | Todos | Os seus | Catálogo disponível |
 | Criar / editar / remover serviços | ✅ | Os seus | ❌ |
 | Gerir categorias | ✅ | ❌ | ❌ |
@@ -192,6 +195,12 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
 
    `COMPLETED`, `CANCELLED` e `NO_SHOW` (falta do cliente) são estados finais: o agendamento deixa de poder ser alterado ou reagendado. `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` só antes dela. Ao cancelar, PROFESSIONAL e ADMIN têm de indicar o motivo (`{"reason": "..."}`); para o cliente é opcional. Cada mudança de estado (incluindo a criação) fica registada no histórico do agendamento, com quem a fez, o papel, o motivo e a hora (migração V11). As respostas de agendamento incluem `cancelledByRole` e `cancellationReason` (null se não estiver `CANCELLED`); na listagem são carregados numa só consulta por página.
 5. **Remoções**: serviços e clientes com agendamentos associados não podem ser removidos (`409`). Para retirar um serviço do catálogo, desative-o (`active = false`).
+6. **Política de password**: as passwords novas (registo de cliente e de prestador e `PATCH /api/users/me/password`) têm de ter **8 a 72 caracteres, com pelo menos uma letra e um número** (72 é o limite do BCrypt, contado em bytes). As passwords já existentes não são revalidadas: as contas de teste com `password` continuam a entrar.
+7. **Invalidação de sessões**: mudar o email ou a password, ou eliminar a conta, preenche `users.credentials_changed_at` (migração V13). O filtro JWT recusa (`401`) qualquer token com `iat` anterior a esse instante, truncado ao segundo, porque o `iat` do JWT tem precisão de segundos. A resposta da mudança de email/password traz um **token novo** que mantém a sessão atual; todas as outras sessões caem. A password atual é pedida em cada uma destas operações: errada, devolve `400` com `errors.currentPassword` (não `401`, que significa sessão expirada) e conta para a proteção contra força bruta do login (`429` ao atingir o limite).
+8. **Eliminação de conta — direito ao apagamento (RGPD)**: `DELETE /api/users/me` anonimiza os dados pessoais e desativa a conta; os registos de marcações mantêm-se, porque fazem parte do histórico do prestador.
+   - **Cliente**: as marcações futuras ativas (`SCHEDULED`/`CONFIRMED`) são canceladas com o motivo "Conta eliminada pelo cliente" no histórico. Nome passa a "Cliente removido", email a `deleted-{id}@deleted.invalid`, telefone a `-` e as notas são apagadas; a conta fica com uma password aleatória e `active = false`.
+   - **Prestador**: com marcações futuras ativas responde `409` (tem de as cancelar primeiro). Caso contrário, todos os seus serviços são desativados e a conta é anonimizada da mesma forma ("Profissional removido").
+   - **ADMIN**: não pode eliminar a própria conta (`400`).
 
 #### Como uma marcação evita conflitos, mesmo com pedidos simultâneos
 
@@ -319,6 +328,16 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 | POST | `/api/auth/register/professional` | Regista um prestador (fica `PENDING`) |
 | POST | `/api/auth/login` | Autentica e devolve o token JWT |
 
+#### O meu perfil — `/api/users/me` (todos os perfis)
+
+| Método | Endpoint | Perfis | Descrição |
+|---|---|---|---|
+| GET | `/api/users/me` | Todos | `{ id, name, email, role, phone, createdAt }` (`phone` só no CUSTOMER) |
+| PUT | `/api/users/me` | Todos | Atualiza `{ name, phone }`. `phone` é obrigatório para o CUSTOMER e ignorado nos outros perfis |
+| PATCH | `/api/users/me/email` | Todos | `{ newEmail, currentPassword }` → token novo; as outras sessões caem |
+| PATCH | `/api/users/me/password` | Todos | `{ currentPassword, newPassword }` → token novo; as outras sessões caem |
+| DELETE | `/api/users/me` | CUSTOMER, PROFESSIONAL | Corpo `{ currentPassword }`. Anonimiza e desativa a conta (`204`) |
+
 #### Administração — `/api/admin/professionals` (ADMIN)
 
 | Método | Endpoint | Descrição |
@@ -439,7 +458,7 @@ Nos erros de validação, `errors` indica o problema de cada campo:
 | `404` | Recurso não encontrado |
 | `405` | Método HTTP não suportado no endpoint |
 | `409` | Conflito com o estado dos dados (ex.: horário já ocupado, remover um registo com agendamentos) |
-| `429` | Demasiadas tentativas de login falhadas para o mesmo email (header `Retry-After`) |
+| `429` | Demasiadas passwords erradas para o mesmo email, no login ou na password atual do perfil (header `Retry-After`) |
 | `500` | Erro inesperado: a resposta tem uma mensagem genérica e o detalhe fica apenas no log |
 
 ### Docker e integração contínua
@@ -531,7 +550,8 @@ REST API for **service scheduling** between customers and service providers (hai
 
 | Module | What it does |
 |---|---|
-| **Authentication** | Customer and provider sign-up, login issuing a JWT. |
+| **Authentication** | Customer and provider sign-up, login issuing a JWT, password policy. |
+| **My profile** | Every user views and edits their own details, changes their email or password (other sessions are signed out) and deletes their account (GDPR). |
 | **Administration** | List providers by status (`PENDING`, `APPROVED`, `REJECTED`), approve and reject them. |
 | **Services** | Service CRUD (name, description, price, duration). Each service belongs to a provider and may have a category. Catalogue searchable by provider, category and name. |
 | **Categories** | Service categories (e.g. Hair, Barbershop, Beauty), managed by ADMIN. |
@@ -644,6 +664,8 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
 | Approve / reject providers | ✅ | ❌ | ❌ |
 | Manage customers | ✅ | ❌ | ❌ |
 | View own customer profile | ❌ | ❌ | ✅ |
+| Edit own profile, change email and password | ✅ | ✅ | ✅ |
+| Delete own account | ❌ | ✅ (no upcoming appointments) | ✅ |
 | List services | All | Own | Available catalogue |
 | Create / update / delete services | ✅ | Own | ❌ |
 | Manage categories | ✅ | ❌ | ❌ |
@@ -684,6 +706,12 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
 
    `COMPLETED`, `CANCELLED` and `NO_SHOW` (customer did not show up) are final states: the appointment can no longer be changed or rescheduled. `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time; `CANCELLED` only before it. When cancelling, PROFESSIONAL and ADMIN must give a reason (`{"reason": "..."}`); for the customer it is optional. Every status change (creation included) is recorded in the appointment's history, with who made it, their role, the reason and the time (migration V11). Appointment responses include `cancelledByRole` and `cancellationReason` (null unless `CANCELLED`); the list loads them in a single query per page.
 5. **Deletions**: services and customers with appointments cannot be deleted (`409`). To remove a service from the catalogue, deactivate it (`active = false`).
+6. **Password policy**: new passwords (customer and provider sign-up and `PATCH /api/users/me/password`) must be **8 to 72 characters long, with at least one letter and one digit** (72 is BCrypt's limit, counted in bytes). Existing passwords are not re-validated: the test accounts using `password` can still log in.
+7. **Session invalidation**: changing the email or password, or deleting the account, sets `users.credentials_changed_at` (migration V13). The JWT filter rejects (`401`) any token whose `iat` is earlier than that instant, truncated to the second, since a JWT `iat` has one-second precision. The email/password change response carries a **new token** that keeps the current session alive; every other session is signed out. Each of these operations asks for the current password: a wrong one returns `400` with `errors.currentPassword` (not `401`, which means the session expired) and counts towards the login brute-force protection (`429` once the limit is reached).
+8. **Account deletion — right to erasure (GDPR)**: `DELETE /api/users/me` anonymises the personal data and deactivates the account; appointment records are kept, as they are part of the provider's history.
+   - **Customer**: upcoming active appointments (`SCHEDULED`/`CONFIRMED`) are cancelled with the reason "Conta eliminada pelo cliente" in the history. The name becomes "Cliente removido", the email `deleted-{id}@deleted.invalid`, the phone `-` and the notes are cleared; the account gets a random password and `active = false`.
+   - **Provider**: returns `409` if there are upcoming active appointments (they must be cancelled first). Otherwise all their services are deactivated and the account is anonymised the same way ("Profissional removido").
+   - **ADMIN**: cannot delete their own account (`400`).
 
 #### How a booking avoids conflicts, even under concurrent requests
 
@@ -811,6 +839,16 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 | POST | `/api/auth/register/professional` | Registers a provider (starts as `PENDING`) |
 | POST | `/api/auth/login` | Authenticates and returns a JWT |
 
+#### My profile — `/api/users/me` (every role)
+
+| Method | Endpoint | Roles | Description |
+|---|---|---|---|
+| GET | `/api/users/me` | All | `{ id, name, email, role, phone, createdAt }` (`phone` for CUSTOMER only) |
+| PUT | `/api/users/me` | All | Updates `{ name, phone }`. `phone` is required for CUSTOMER and ignored for other roles |
+| PATCH | `/api/users/me/email` | All | `{ newEmail, currentPassword }` → new token; other sessions are signed out |
+| PATCH | `/api/users/me/password` | All | `{ currentPassword, newPassword }` → new token; other sessions are signed out |
+| DELETE | `/api/users/me` | CUSTOMER, PROFESSIONAL | Body `{ currentPassword }`. Anonymises and deactivates the account (`204`) |
+
 #### Administration — `/api/admin/professionals` (ADMIN)
 
 | Method | Endpoint | Description |
@@ -931,7 +969,7 @@ Validation errors list each field's problem in `errors`:
 | `404` | Resource not found |
 | `405` | HTTP method not supported by the endpoint |
 | `409` | Conflict with the current data (e.g. time slot already taken, deleting a record that has appointments) |
-| `429` | Too many failed logins for the same email (`Retry-After` header) |
+| `429` | Too many wrong passwords for the same email, at login or as the profile's current password (`Retry-After` header) |
 | `500` | Unexpected error: the response carries a generic message and the details only go to the log |
 
 > API messages are returned in Portuguese.

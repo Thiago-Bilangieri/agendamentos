@@ -5,7 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "users") // Usamos "users" no plural porque "user" é uma palavra reservada no PostgreSQL
@@ -43,6 +45,18 @@ public class User {
     @Column(name = "approval_status", nullable = false, length = 50)
     @Builder.Default
     private ApprovalStatus approvalStatus = ApprovalStatus.APPROVED;
+
+    // Última mudança de email/password ou eliminação da conta, em UTC: os tokens emitidos antes deixam de valer
+    @Column(name = "credentials_changed_at")
+    private LocalDateTime credentialsChangedAt;
+
+    public Instant getCredentialsChangedInstant() {
+        return credentialsChangedAt == null ? null : credentialsChangedAt.toInstant(ZoneOffset.UTC);
+    }
+
+    public void markCredentialsChanged(Instant instant) {
+        this.credentialsChangedAt = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

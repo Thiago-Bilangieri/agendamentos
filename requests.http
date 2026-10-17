@@ -91,3 +91,74 @@ GET {{baseUrl}}/api/appointments
 
 ### 15. Health check (público)
 GET {{baseUrl}}/actuator/health
+
+### ---------- O meu perfil (/api/users/me) ----------
+### Usa uma conta descartável: no fim é eliminada (anonimizada), por isso o fluxo pode ser repetido
+
+### 16. Registo de um cliente para os pedidos do perfil (password: 8 a 72 caracteres, com letra e número)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{"name": "Perfil Demo", "email": "perfil.demo@email.com", "password": "secret123", "phone": "912000000"}
+
+### 17. Login com a conta nova
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "perfil.demo@email.com", "password": "secret123"}
+
+> {% client.global.set("profileToken", response.body.token); %}
+
+### 18. O meu perfil (phone só existe para o CUSTOMER)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{profileToken}}
+
+### 19. Atualizar nome e telefone (o telefone é obrigatório para o cliente)
+PUT {{baseUrl}}/api/users/me
+Authorization: Bearer {{profileToken}}
+Content-Type: application/json
+
+{"name": "Perfil Demo Atualizado", "phone": "919999999"}
+
+### 20. Password atual errada: 400 com errors.currentPassword (não 401)
+PATCH {{baseUrl}}/api/users/me/password
+Authorization: Bearer {{profileToken}}
+Content-Type: application/json
+
+{"currentPassword": "errada123", "newPassword": "novaPassword1"}
+
+### 21. Mudar o email: devolve um token novo; os tokens anteriores deixam de ser aceites
+PATCH {{baseUrl}}/api/users/me/email
+Authorization: Bearer {{profileToken}}
+Content-Type: application/json
+
+{"newEmail": "perfil.demo.novo@email.com", "currentPassword": "secret123"}
+
+> {% client.global.set("profileToken", response.body.token); %}
+
+### 22. Mudar a password: devolve um token novo; as outras sessões caem
+PATCH {{baseUrl}}/api/users/me/password
+Authorization: Bearer {{profileToken}}
+Content-Type: application/json
+
+{"currentPassword": "secret123", "newPassword": "novaPassword1"}
+
+> {% client.global.set("profileToken", response.body.token); %}
+
+### 23. Eliminar a conta (RGPD): dados anonimizados, marcações futuras canceladas, 204
+DELETE {{baseUrl}}/api/users/me
+Authorization: Bearer {{profileToken}}
+Content-Type: application/json
+
+{"currentPassword": "novaPassword1"}
+
+### 24. O token da conta eliminada já não é aceite: 401
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{profileToken}}
+
+### 25. Um ADMIN não pode eliminar a própria conta: 400
+DELETE {{baseUrl}}/api/users/me
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"currentPassword": "password"}

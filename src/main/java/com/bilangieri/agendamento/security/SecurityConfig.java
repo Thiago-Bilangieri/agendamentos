@@ -101,6 +101,10 @@ public class SecurityConfig {
                         // Sondas de liveness/readiness (Docker, Kubernetes, load balancer)
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
 
+                        // O meu perfil: dados, email, password e eliminação da própria conta
+                        .requestMatchers("/api/users/me", "/api/users/me/**")
+                        .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
+
                         // Administração (aprovação de prestadores)
                         .requestMatchers("/api/admin/**")
                         .hasRole("ADMIN")
