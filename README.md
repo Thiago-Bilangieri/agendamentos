@@ -331,7 +331,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 
 | Método | Endpoint | Perfis | Descrição |
 |---|---|---|---|
-| GET | `/api/services` 📄 | Todos | Lista serviços conforme o perfil. Filtros opcionais e combináveis: `professionalId`, `categoryId`, `name` |
+| GET | `/api/services` 📄 | Todos | Lista serviços conforme o perfil. Filtros opcionais e combináveis: `professionalId`, `categoryId`, `q` (recomendado: procura no nome do serviço ou do prestador, sem distinguir maiúsculas nem acentos — `?q=depilacao` encontra "Depilação") e `name` (só o nome do serviço, mantido por compatibilidade) |
 | GET | `/api/services/{id}/availability?date=yyyy-MM-dd` | Todos | Horários livres do serviço nesse dia |
 | GET | `/api/services/{id}` | Todos | Detalhe de um serviço |
 | POST | `/api/services` | ADMIN, PROFESSIONAL | Cria um serviço |
@@ -823,7 +823,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 
 | Method | Endpoint | Roles | Description |
 |---|---|---|---|
-| GET | `/api/services` 📄 | All | Lists services according to the caller's role. Optional, combinable filters: `professionalId`, `categoryId`, `name` |
+| GET | `/api/services` 📄 | All | Lists services according to the caller's role. Optional, combinable filters: `professionalId`, `categoryId`, `q` (recommended: searches the service or provider name, ignoring case and accents — `?q=depilacao` finds "Depilação") and `name` (service name only, kept for compatibility) |
 | GET | `/api/services/{id}/availability?date=yyyy-MM-dd` | All | Free slots for the service on that day |
 | GET | `/api/services/{id}` | All | Service details |
 | POST | `/api/services` | ADMIN, PROFESSIONAL | Creates a service |

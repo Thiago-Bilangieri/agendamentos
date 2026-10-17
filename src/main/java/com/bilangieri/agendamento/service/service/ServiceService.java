@@ -81,6 +81,9 @@ public class ServiceService {
         if (filter.name() != null && !filter.name().isBlank()) {
             specs.add(ServiceSpecifications.nameContains(filter.name()));
         }
+        if (filter.q() != null && !filter.q().isBlank()) {
+            specs.add(ServiceSpecifications.serviceOrProfessionalNameContains(filter.q()));
+        }
 
         return serviceRepository.findAll(Specification.allOf(specs), pageable)
                 .map(ServiceResponse::fromEntity);

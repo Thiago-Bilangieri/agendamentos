@@ -1,9 +1,22 @@
 package com.bilangieri.agendamento.service;
 
 import com.bilangieri.agendamento.IntegrationTest;
+import com.bilangieri.agendamento.service.entity.Service;
+import com.bilangieri.agendamento.service.repository.ServiceSpecifications;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.MediaType;
 
+import java.math.BigDecimal;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -14,6 +27,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ServiceIntegrationTest extends IntegrationTest {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Test
     void customerSeesOnlyTheAvailableCatalog() throws Exception {
@@ -55,6 +71,96 @@ class ServiceIntegrationTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content", hasSize(0)));
         }
+    }
+
+    @Test
+    void searchFindsServicesByProfessionalName() throws Exception {
+        mockMvc.perform(get("/api/services").param("q", "ana").header("Authorization", bearer(JOAO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(3)))
+                .andExpect(jsonPath("$.content[*].professionalName", everyItem(is("Ana Ribeiro"))))
+                .andExpect(jsonPath("$.content[*].name", containsInAnyOrder("Brushing", "Coloração", "Corte Feminino")));
+    }
+
+    @Test
+    void searchIgnoresCase() throws Exception {
+        for (String text : new String[]{"CORTE", "corte"}) {
+            mockMvc.perform(get("/api/services").param("q", text).header("Authorization", bearer(JOAO)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[*].name",
+                            containsInAnyOrder("Corte Feminino", "Corte Masculino", "Corte + Barba")));
+        }
+    }
+
+    @Test
+    void searchIgnoresAccentsInTheTextAndInTheData() throws Exception {
+        mockMvc.perform(get("/api/services").param("q", "depilacao").header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.content[*].name", contains("Depilação Pernas")));
+        mockMvc.perform(get("/api/services").param("q", "COLORAÇÃO").header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.content[*].name", contains("Coloração")));
+        // Também no nome do prestador, e com acentos a mais no texto pesquisado
+        mockMvc.perform(get("/api/services").param("q", "ribéiro").header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.content", hasSize(3)));
+    }
+
+    @Test
+    void searchCombinesWithCategory() throws Exception {
+        Long cabelo = service(ANA, "Corte Feminino").getCategory().getId();
+
+        mockMvc.perform(get("/api/services").param("q", "corte").param("categoryId", cabelo.toString())
+                        .header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.content[*].name", contains("Corte Feminino")));
+    }
+
+    @Test
+    void searchTreatsLikeWildcardsAsPlainText() throws Exception {
+        serviceRepository.save(Service.builder().name("Corte 50% desconto").price(new BigDecimal("10.00"))
+                .durationMinutes(30).professional(user(ANA)).build());
+
+        mockMvc.perform(get("/api/services").param("q", "%").header("Authorization", bearer(ADMIN)))
+                .andExpect(jsonPath("$.content[*].name", contains("Corte 50% desconto")));
+        mockMvc.perform(get("/api/services").param("q", "_").header("Authorization", bearer(ADMIN)))
+                .andExpect(jsonPath("$.content", hasSize(0)));
+        mockMvc.perform(get("/api/services").param("q", "\\").header("Authorization", bearer(ADMIN)))
+                .andExpect(jsonPath("$.content", hasSize(0)));
+        mockMvc.perform(get("/api/services").param("q", "d'Ana").header("Authorization", bearer(ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+    }
+
+    @Test
+    void searchKeepsHiddenServicesOutOfTheCustomerCatalog() throws Exception {
+        // Inativo, prestador pendente e prestador inativo
+        for (String text : new String[]{"pintura", "massagem", "diogo", "filipe"}) {
+            mockMvc.perform(get("/api/services").param("q", text).header("Authorization", bearer(JOAO)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content", hasSize(0)))
+                    .andExpect(jsonPath("$.page.totalElements").value(0));
+        }
+        // O ADMIN continua a vê-los
+        mockMvc.perform(get("/api/services").param("q", "massagem").header("Authorization", bearer(ADMIN)))
+                .andExpect(jsonPath("$.content[*].name", contains("Massagem Relaxante")));
+    }
+
+    @Test
+    void searchPaginationCountsEachServiceOnce() throws Exception {
+        // Os 9 serviços do catálogo do cliente têm "a" no nome do serviço e/ou no do prestador:
+        // os que têm nos dois contam uma só vez
+        mockMvc.perform(get("/api/services").param("q", "a").param("size", "2").header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.page.totalElements").value(9));
+    }
+
+    @Test
+    void catalogSearchUsesASingleJoinWithTheProfessional() {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Service> query = cb.createQuery(Service.class);
+        Root<Service> root = query.from(Service.class);
+
+        Specification.allOf(ServiceSpecifications.bookable(), ServiceSpecifications.serviceOrProfessionalNameContains("ana"))
+                .toPredicate(root, query, cb);
+
+        assertThat(root.getJoins()).hasSize(1);
     }
 
     @Test
