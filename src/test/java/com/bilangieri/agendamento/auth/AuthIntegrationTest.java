@@ -3,6 +3,8 @@ package com.bilangieri.agendamento.auth;
 import com.bilangieri.agendamento.IntegrationTest;
 import com.bilangieri.agendamento.auth.service.JwtService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
@@ -15,6 +17,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class AuthIntegrationTest extends IntegrationTest {
+
+    private static final String PASSWORD_POLICY =
+            "A password deve ter entre 8 e 72 caracteres e incluir pelo menos uma letra e um número.";
 
     @Value("${api.security.token.secret}")
     private String tokenSecret;
@@ -118,6 +123,32 @@ class AuthIntegrationTest extends IntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.email").exists())
                 .andExpect(jsonPath("$.errors.phone").exists());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"password", "12345678", "abc123"})
+    void registerRejectsWeakPasswords(String weakPassword) throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Cliente", "email": "fraca@email.com", "password": "%s", "phone": "912000000"}
+                                """.formatted(weakPassword)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password").value(PASSWORD_POLICY));
+
+        mockMvc.perform(post("/api/auth/register/professional")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Prestador", "email": "fraca@email.com", "password": "%s"}
+                                """.formatted(weakPassword)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password").value(PASSWORD_POLICY));
+    }
+
+    // A política só vale para passwords novas: as contas de teste com "password" continuam a entrar
+    @Test
+    void existingAccountsWithWeakPasswordsCanStillLogIn() throws Exception {
+        login(MARIA, "password").andExpect(status().isOk());
     }
 
     @Test

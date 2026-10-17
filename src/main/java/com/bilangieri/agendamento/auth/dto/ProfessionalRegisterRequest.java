@@ -1,6 +1,7 @@
 package com.bilangieri.agendamento.auth.dto;
 
 import com.bilangieri.agendamento.user.Emails;
+import com.bilangieri.agendamento.user.validation.StrongPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
@@ -14,6 +15,7 @@ public record ProfessionalRegisterRequest(
         String email,
 
         @NotBlank(message = "A password é obrigatória")
+        @StrongPassword
         String password
 
 ) {
