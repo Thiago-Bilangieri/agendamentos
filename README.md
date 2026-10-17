@@ -353,6 +353,7 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 | Método | Endpoint | Perfis | Descrição |
 |---|---|---|---|
 | GET | `/api/professionals/{id}/working-hours` | Todos | Horário semanal de um prestador |
+| GET | `/api/professionals/me/working-hours` | PROFESSIONAL | O seu horário semanal |
 | PUT | `/api/professionals/me/working-hours` | PROFESSIONAL | Substitui o seu horário semanal completo |
 
 #### Clientes — `/api/customers`
@@ -843,6 +844,7 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 | Method | Endpoint | Roles | Description |
 |---|---|---|---|
 | GET | `/api/professionals/{id}/working-hours` | All | A provider's weekly schedule |
+| GET | `/api/professionals/me/working-hours` | PROFESSIONAL | Their own weekly schedule |
 | PUT | `/api/professionals/me/working-hours` | PROFESSIONAL | Replaces their whole weekly schedule |
 
 #### Customers — `/api/customers`

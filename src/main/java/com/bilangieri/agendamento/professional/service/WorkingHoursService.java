@@ -45,6 +45,12 @@ public class WorkingHoursService {
                 .toList();
     }
 
+    // Horário do prestador autenticado: o front-end não precisa de saber o seu ID
+    @Transactional(readOnly = true)
+    public List<WorkingHoursResponse> findMine() {
+        return findByProfessional(currentUserService.getUser().getId());
+    }
+
     // O prestador autenticado substitui o seu horário semanal completo
     @Transactional
     public List<WorkingHoursResponse> replaceMine(WeeklyScheduleRequest request) {

@@ -40,6 +40,20 @@ class WorkingHoursIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void professionalSeesOwnSchedule() throws Exception {
+        mockMvc.perform(get("/api/professionals/me/working-hours").header("Authorization", bearer(ANA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(10)))
+                .andExpect(jsonPath("$[0].dayOfWeek").value("TUESDAY"));
+    }
+
+    @Test
+    void onlyProfessionalsHaveOwnSchedule() throws Exception {
+        mockMvc.perform(get("/api/professionals/me/working-hours").header("Authorization", bearer(JOAO)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void professionalReplacesOwnSchedule() throws Exception {
         mockMvc.perform(put("/api/professionals/me/working-hours").header("Authorization", bearer(ANA))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -52,8 +66,7 @@ class WorkingHoursIntegrationTest extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)));
 
-        mockMvc.perform(get("/api/professionals/{id}/working-hours", user(ANA).getId())
-                        .header("Authorization", bearer(ANA)))
+        mockMvc.perform(get("/api/professionals/me/working-hours").header("Authorization", bearer(ANA)))
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[*].dayOfWeek", not(hasItem("TUESDAY"))));
     }

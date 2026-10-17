@@ -116,7 +116,8 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")
 
                         // Horário de trabalho dos prestadores
-                        .requestMatchers(HttpMethod.PUT, "/api/professionals/me/working-hours")
+                        // GET e PUT do próprio horário; tem de vir antes da regra com "*", que também apanha "me"
+                        .requestMatchers("/api/professionals/me/working-hours")
                         .hasRole("PROFESSIONAL")
                         .requestMatchers(HttpMethod.GET, "/api/professionals/*/working-hours")
                         .hasAnyRole("ADMIN", "CUSTOMER", "PROFESSIONAL")

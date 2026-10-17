@@ -30,6 +30,13 @@ public class ProfessionalController {
         return ResponseEntity.ok(workingHoursService.findByProfessional(id));
     }
 
+    @GetMapping("/me/working-hours")
+    @Operation(summary = "O meu horário de trabalho",
+            description = "**PROFESSIONAL.** Blocos semanais do prestador autenticado, por dia e hora de início.")
+    public ResponseEntity<List<WorkingHoursResponse>> findMyWorkingHours() {
+        return ResponseEntity.ok(workingHoursService.findMine());
+    }
+
     @PutMapping("/me/working-hours")
     @Operation(summary = "Definir o meu horário de trabalho", description = """
             **PROFESSIONAL.** Substitui o horário semanal completo. Um dia pode ter vários blocos \
