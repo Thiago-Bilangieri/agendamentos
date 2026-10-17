@@ -31,7 +31,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
@@ -93,7 +96,7 @@ public class AppointmentService {
         Appointment savedAppointment = saveCheckingOverlap(appointment,
                 "O profissional já possui um agendamento conflituoso neste intervalo de horários.");
         recordStatusChange(savedAppointment, null, null);
-        return AppointmentResponse.fromEntity(savedAppointment);
+        return AppointmentResponse.fromEntity(savedAppointment, null);
     }
 
     // CUSTOMER vê os seus agendamentos, PROFESSIONAL os que recebeu, ADMIN todos
@@ -108,7 +111,25 @@ public class AppointmentService {
             appointments = appointmentRepository.findAll(pageable);
         }
 
-        return appointments.map(AppointmentResponse::fromEntity);
+        Map<Long, AppointmentStatusHistory> cancellations = cancellationsOf(appointments.getContent());
+        return appointments.map(appointment ->
+                AppointmentResponse.fromEntity(appointment, cancellations.get(appointment.getId())));
+    }
+
+    // Entradas de cancelamento dos agendamentos CANCELLED da página, numa só consulta (e nenhuma se não houver)
+    private Map<Long, AppointmentStatusHistory> cancellationsOf(List<Appointment> appointments) {
+        List<Long> cancelledIds = appointments.stream()
+                .filter(appointment -> appointment.getStatus() == AppointmentStatus.CANCELLED)
+                .map(Appointment::getId)
+                .toList();
+        if (cancelledIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return statusHistoryRepository.findByAppointmentIdInAndToStatus(cancelledIds, AppointmentStatus.CANCELLED)
+                .stream()
+                .collect(Collectors.toMap(entry -> entry.getAppointment().getId(), Function.identity(),
+                        (first, second) -> second.getChangedAt().isAfter(first.getChangedAt()) ? second : first));
     }
 
     @Transactional(readOnly = true)
@@ -116,7 +137,12 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
-        return AppointmentResponse.fromEntity(appointment);
+
+        AppointmentStatusHistory cancellation = appointment.getStatus() == AppointmentStatus.CANCELLED
+                ? statusHistoryRepository.findFirstByAppointmentIdAndToStatusOrderByChangedAtDesc(
+                        id, AppointmentStatus.CANCELLED).orElse(null)
+                : null;
+        return AppointmentResponse.fromEntity(appointment, cancellation);
     }
 
     // Mesmas regras de acesso do detalhe; os agendamentos anteriores à V11 não têm histórico (lista vazia)
@@ -159,10 +185,10 @@ public class AppointmentService {
         Appointment updated = saveCheckingOverlap(appointment,
                 "O profissional já possui um agendamento conflituoso neste novo horário.");
         // Reagendar ou alterar só as notas não é uma mudança de estado
-        if (previousStatus != updated.getStatus()) {
-            recordStatusChange(updated, previousStatus, null);
-        }
-        return AppointmentResponse.fromEntity(updated);
+        AppointmentStatusHistory change = previousStatus != updated.getStatus()
+                ? recordStatusChange(updated, previousStatus, null)
+                : null;
+        return AppointmentResponse.fromEntity(updated, change);
     }
 
     private void reschedule(Appointment appointment, LocalDateTime startAt) {
@@ -212,14 +238,15 @@ public class AppointmentService {
         AppointmentStatus previousStatus = appointment.getStatus();
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
-        recordStatusChange(updated, previousStatus, trimmedReason);
-        return AppointmentResponse.fromEntity(updated);
+        AppointmentStatusHistory change = recordStatusChange(updated, previousStatus, trimmedReason);
+        return AppointmentResponse.fromEntity(updated, change);
     }
 
-    // Único ponto onde se regista o histórico de estados: quem mudou, com que papel e quando
-    private void recordStatusChange(Appointment appointment, AppointmentStatus fromStatus, String reason) {
+    // Único ponto onde se regista o histórico de estados: quem mudou, com que papel e quando.
+    // Devolve a entrada para a resposta já trazer quem cancelou e o motivo, sem a voltar a ler
+    private AppointmentStatusHistory recordStatusChange(Appointment appointment, AppointmentStatus fromStatus, String reason) {
         User changedBy = currentUserService.getUser();
-        statusHistoryRepository.save(AppointmentStatusHistory.builder()
+        AppointmentStatusHistory entry = AppointmentStatusHistory.builder()
                 .appointment(appointment)
                 .fromStatus(fromStatus)
                 .toStatus(appointment.getStatus())
@@ -227,7 +254,9 @@ public class AppointmentService {
                 .changedByRole(changedBy.getRole())
                 .reason(reason)
                 .changedAt(LocalDateTime.now(clock))
-                .build());
+                .build();
+        statusHistoryRepository.save(entry);
+        return entry;
     }
 
     // O bloqueio do prestador serializa as marcações feitas por este serviço; a restrição

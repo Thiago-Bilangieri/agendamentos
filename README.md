@@ -190,7 +190,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
        NO_SHOW --> [*]
    ```
 
-   `COMPLETED`, `CANCELLED` e `NO_SHOW` (falta do cliente) são estados finais: o agendamento deixa de poder ser alterado ou reagendado. `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` só antes dela. Ao cancelar, PROFESSIONAL e ADMIN têm de indicar o motivo (`{"reason": "..."}`); para o cliente é opcional. Cada mudança de estado (incluindo a criação) fica registada no histórico do agendamento, com quem a fez, o papel, o motivo e a hora (migração V11).
+   `COMPLETED`, `CANCELLED` e `NO_SHOW` (falta do cliente) são estados finais: o agendamento deixa de poder ser alterado ou reagendado. `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` só antes dela. Ao cancelar, PROFESSIONAL e ADMIN têm de indicar o motivo (`{"reason": "..."}`); para o cliente é opcional. Cada mudança de estado (incluindo a criação) fica registada no histórico do agendamento, com quem a fez, o papel, o motivo e a hora (migração V11). As respostas de agendamento incluem `cancelledByRole` e `cancellationReason` (null se não estiver `CANCELLED`); na listagem são carregados numa só consulta por página.
 5. **Remoções**: serviços e clientes com agendamentos associados não podem ser removidos (`409`). Para retirar um serviço do catálogo, desative-o (`active = false`).
 
 #### Como uma marcação evita conflitos, mesmo com pedidos simultâneos
@@ -682,7 +682,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
        NO_SHOW --> [*]
    ```
 
-   `COMPLETED`, `CANCELLED` and `NO_SHOW` (customer did not show up) are final states: the appointment can no longer be changed or rescheduled. `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time; `CANCELLED` only before it. When cancelling, PROFESSIONAL and ADMIN must give a reason (`{"reason": "..."}`); for the customer it is optional. Every status change (creation included) is recorded in the appointment's history, with who made it, their role, the reason and the time (migration V11).
+   `COMPLETED`, `CANCELLED` and `NO_SHOW` (customer did not show up) are final states: the appointment can no longer be changed or rescheduled. `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time; `CANCELLED` only before it. When cancelling, PROFESSIONAL and ADMIN must give a reason (`{"reason": "..."}`); for the customer it is optional. Every status change (creation included) is recorded in the appointment's history, with who made it, their role, the reason and the time (migration V11). Appointment responses include `cancelledByRole` and `cancellationReason` (null unless `CANCELLED`); the list loads them in a single query per page.
 5. **Deletions**: services and customers with appointments cannot be deleted (`409`). To remove a service from the catalogue, deactivate it (`active = false`).
 
 #### How a booking avoids conflicts, even under concurrent requests

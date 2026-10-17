@@ -2,6 +2,9 @@ package com.bilangieri.agendamento.appointment.dto;
 
 import com.bilangieri.agendamento.appointment.entity.Appointment;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
+import com.bilangieri.agendamento.appointment.entity.AppointmentStatusHistory;
+import com.bilangieri.agendamento.user.entity.Role;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
@@ -17,9 +20,18 @@ public record AppointmentResponse(
         LocalDateTime endAt,
         AppointmentStatus status,
         String notes,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        @Schema(description = "Papel de quem cancelou; null se o agendamento não estiver CANCELLED "
+                + "ou tiver sido cancelado antes da existência do histórico")
+        Role cancelledByRole,
+
+        @Schema(description = "Motivo do cancelamento; null se não estiver CANCELLED ou se o cliente não o indicou")
+        String cancellationReason
 ) {
-    public static AppointmentResponse fromEntity(Appointment appointment) {
+    // A entrada de cancelamento do histórico só é usada se o agendamento estiver de facto CANCELLED
+    public static AppointmentResponse fromEntity(Appointment appointment, AppointmentStatusHistory cancellation) {
+        boolean cancelled = appointment.getStatus() == AppointmentStatus.CANCELLED && cancellation != null;
         return new AppointmentResponse(
                 appointment.getId(),
                 appointment.getCustomer().getId(),
@@ -32,7 +44,9 @@ public record AppointmentResponse(
                 appointment.getEndAt(),
                 appointment.getStatus(),
                 appointment.getNotes(),
-                appointment.getCreatedAt()
+                appointment.getCreatedAt(),
+                cancelled ? cancellation.getChangedByRole() : null,
+                cancelled ? cancellation.getReason() : null
         );
     }
 }

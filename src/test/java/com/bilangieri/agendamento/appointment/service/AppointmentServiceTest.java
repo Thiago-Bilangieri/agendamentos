@@ -27,6 +27,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.time.Clock;
@@ -276,6 +278,65 @@ class AppointmentServiceTest {
         AppointmentResponse response = appointmentService.updateStatus(50L, AppointmentStatus.COMPLETED);
 
         assertThat(response.status()).isEqualTo(AppointmentStatus.COMPLETED);
+        assertThat(response.cancelledByRole()).isNull();
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getFromStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+        assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+        assertThat(entry.getReason()).isNull();
+    }
+
+    @Test
+    void markingNoShowRecordsTheStatusChange() {
+        loggedInAs(Role.PROFESSIONAL);
+        when(currentUserService.getEmail()).thenReturn("ana@test.com");
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.minusHours(1));
+        when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        appointmentService.updateStatus(50L, AppointmentStatus.NO_SHOW);
+
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getFromStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
+        assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.NO_SHOW);
+        assertThat(entry.getChangedByRole()).isEqualTo(Role.PROFESSIONAL);
+    }
+
+    @Test
+    void adminPutThatChangesStatusRecordsTheChange() {
+        loggedInAs(Role.ADMIN);
+        LocalDateTime startAt = NOW.plusDays(1);
+        existingAppointment(AppointmentStatus.SCHEDULED, startAt);
+        when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        appointmentService.update(50L, new AppointmentUpdateRequest(startAt, AppointmentStatus.CONFIRMED, null));
+
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getFromStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
+        assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test
+    void listLoadsCancellationsOfThePageInOneQuery() {
+        loggedInAs(Role.ADMIN);
+        Appointment cancelled = Appointment.builder().id(50L).customer(customer).service(service)
+                .professional(professional).startAt(NOW).endAt(NOW.plusMinutes(45))
+                .status(AppointmentStatus.CANCELLED).build();
+        Appointment scheduled = Appointment.builder().id(51L).customer(customer).service(service)
+                .professional(professional).startAt(NOW).endAt(NOW.plusMinutes(45))
+                .status(AppointmentStatus.SCHEDULED).build();
+        when(appointmentRepository.findAll(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(cancelled, scheduled)));
+        AppointmentStatusHistory cancellation = AppointmentStatusHistory.builder()
+                .appointment(cancelled).toStatus(AppointmentStatus.CANCELLED)
+                .changedByRole(Role.PROFESSIONAL).reason("Prestador doente").changedAt(NOW).build();
+        when(statusHistoryRepository.findByAppointmentIdInAndToStatus(List.of(50L), AppointmentStatus.CANCELLED))
+                .thenReturn(List.of(cancellation));
+
+        List<AppointmentResponse> responses = appointmentService.findAll(Pageable.unpaged()).getContent();
+
+        assertThat(responses.get(0).cancelledByRole()).isEqualTo(Role.PROFESSIONAL);
+        assertThat(responses.get(0).cancellationReason()).isEqualTo("Prestador doente");
+        assertThat(responses.get(1).cancelledByRole()).isNull();
+        verify(statusHistoryRepository, times(1)).findByAppointmentIdInAndToStatus(any(), any());
     }
 
     @Test
@@ -299,6 +360,8 @@ class AppointmentServiceTest {
         AppointmentResponse response = appointmentService.cancel(50L, "  Prestador doente  ");
 
         assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(response.cancelledByRole()).isEqualTo(Role.ADMIN);
+        assertThat(response.cancellationReason()).isEqualTo("Prestador doente");
         AppointmentStatusHistory entry = savedHistoryEntry();
         assertThat(entry.getFromStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
         assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.CANCELLED);
@@ -345,6 +408,8 @@ class AppointmentServiceTest {
         AppointmentStatusHistory entry = savedHistoryEntry();
         assertThat(entry.getChangedByRole()).isEqualTo(Role.CUSTOMER);
         assertThat(entry.getReason()).isNull();
+        assertThat(response.cancelledByRole()).isEqualTo(Role.CUSTOMER);
+        assertThat(response.cancellationReason()).isNull();
     }
 
     @Test

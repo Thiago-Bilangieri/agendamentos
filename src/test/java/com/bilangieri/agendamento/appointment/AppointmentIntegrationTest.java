@@ -283,12 +283,25 @@ class AppointmentIntegrationTest extends IntegrationTest {
         Integer id = JsonPath.read(body, "$.id");
 
         mockMvc.perform(patch("/api/appointments/{id}/confirm", id).header("Authorization", bearer(ANA)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cancelledByRole").value(nullValue()))
+                .andExpect(jsonPath("$.cancellationReason").value(nullValue()));
         mockMvc.perform(patch("/api/appointments/{id}/cancel", id).header("Authorization", bearer(ANA))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"reason": "  Prestador doente  "}"""))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledByRole").value("PROFESSIONAL"))
+                .andExpect(jsonPath("$.cancellationReason").value("Prestador doente"));
+
+        // O detalhe e a listagem trazem quem cancelou e o motivo sem passar pelo /history
+        mockMvc.perform(get("/api/appointments/{id}", id).header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.cancelledByRole").value("PROFESSIONAL"))
+                .andExpect(jsonPath("$.cancellationReason").value("Prestador doente"));
+        mockMvc.perform(get("/api/appointments").param("size", "100").header("Authorization", bearer(JOAO)))
+                .andExpect(jsonPath("$.content[?(@.id == %d)].cancellationReason".formatted(id)).value("Prestador doente"))
+                .andExpect(jsonPath("$.content[?(@.id == %d)].cancelledByRole".formatted(id)).value("PROFESSIONAL"));
 
         mockMvc.perform(get("/api/appointments/{id}/history", id).header("Authorization", bearer(JOAO)))
                 .andExpect(status().isOk())
@@ -355,7 +368,20 @@ class AppointmentIntegrationTest extends IntegrationTest {
     void customerCannotSeeAnotherCustomersHistory() throws Exception {
         Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
 
+        // Igual ao GET /{id}: 403 para agendamentos alheios
+        mockMvc.perform(get("/api/appointments/{id}", appointment.getId()).header("Authorization", bearer(MARIA)))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/appointments/{id}/history", appointment.getId()).header("Authorization", bearer(MARIA)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void appointmentCancelledBeforeTheHistoryExistedHasNoCancellationDetails() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.CANCELLED);
+
+        mockMvc.perform(get("/api/appointments/{id}", appointment.getId()).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cancelledByRole").value(nullValue()))
+                .andExpect(jsonPath("$.cancellationReason").value(nullValue()));
     }
 }
