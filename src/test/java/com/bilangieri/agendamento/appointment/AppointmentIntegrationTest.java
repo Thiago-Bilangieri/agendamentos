@@ -4,6 +4,7 @@ import com.bilangieri.agendamento.IntegrationTest;
 import com.bilangieri.agendamento.appointment.entity.Appointment;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
 import com.bilangieri.agendamento.service.entity.Service;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
@@ -15,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -271,5 +273,89 @@ class AppointmentIntegrationTest extends IntegrationTest {
         mockMvc.perform(patch("/api/appointments/{id}/complete", appointment.getId()).header("Authorization", bearer(ANA)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail", containsString("ainda não começou")));
+    }
+
+    @Test
+    void historyRecordsEveryStatusChangeWithWhoMadeItAndTheReason() throws Exception {
+        String body = book(JOAO, customer(JOAO).getId(), service(ANA, "Brushing").getId(), nextYearAt(15, 0))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Integer id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(patch("/api/appointments/{id}/confirm", id).header("Authorization", bearer(ANA)))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", id).header("Authorization", bearer(ANA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"reason": "  Prestador doente  "}"""))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/appointments/{id}/history", id).header("Authorization", bearer(JOAO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].fromStatus").value(nullValue()))
+                .andExpect(jsonPath("$[0].toStatus").value("SCHEDULED"))
+                .andExpect(jsonPath("$[0].changedByRole").value("CUSTOMER"))
+                .andExpect(jsonPath("$[1].fromStatus").value("SCHEDULED"))
+                .andExpect(jsonPath("$[1].toStatus").value("CONFIRMED"))
+                .andExpect(jsonPath("$[2].fromStatus").value("CONFIRMED"))
+                .andExpect(jsonPath("$[2].toStatus").value("CANCELLED"))
+                .andExpect(jsonPath("$[2].changedByName").value(user(ANA).getName()))
+                .andExpect(jsonPath("$[2].changedByRole").value("PROFESSIONAL"))
+                .andExpect(jsonPath("$[2].reason").value("Prestador doente"))
+                .andExpect(jsonPath("$[2].changedAt").exists());
+    }
+
+    @Test
+    void professionalCannotCancelWithoutAReason() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(ANA)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("motivo do cancelamento é obrigatório")));
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(ANA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"reason": "   "}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail", containsString("motivo do cancelamento é obrigatório")));
+    }
+
+    @Test
+    void cancelReasonLongerThan500CharactersIsRejected() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(patch("/api/appointments/{id}/cancel", appointment.getId()).header("Authorization", bearer(ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"reason": "%s"}""".formatted("a".repeat(501))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.reason", containsString("500 caracteres")));
+    }
+
+    @Test
+    void reschedulingWithoutChangingStatusAddsNoHistory() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(put("/api/appointments/{id}", appointment.getId())
+                        .header("Authorization", bearer(ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"startAt":"%s","status":"SCHEDULED"}""".formatted(nextYearAt(16, 0))))
+                .andExpect(status().isOk());
+
+        // Agendamento sem entrada de criação (como os anteriores ao histórico): continua vazio
+        mockMvc.perform(get("/api/appointments/{id}/history", appointment.getId()).header("Authorization", bearer(ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void customerCannotSeeAnotherCustomersHistory() throws Exception {
+        Appointment appointment = saveAppointment(customer(JOAO), service(ANA, "Brushing"), nextYearAt(15, 0), AppointmentStatus.SCHEDULED);
+
+        mockMvc.perform(get("/api/appointments/{id}/history", appointment.getId()).header("Authorization", bearer(MARIA)))
+                .andExpect(status().isForbidden());
     }
 }

@@ -1,7 +1,9 @@
 package com.bilangieri.agendamento.appointment.controller;
 
+import com.bilangieri.agendamento.appointment.dto.AppointmentCancelRequest;
 import com.bilangieri.agendamento.appointment.dto.AppointmentCreateRequest;
 import com.bilangieri.agendamento.appointment.dto.AppointmentResponse;
+import com.bilangieri.agendamento.appointment.dto.AppointmentStatusHistoryResponse;
 import com.bilangieri.agendamento.appointment.dto.AppointmentUpdateRequest;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
 import com.bilangieri.agendamento.appointment.service.AppointmentService;
@@ -18,6 +20,8 @@ import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -58,6 +62,16 @@ public class AppointmentController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}/history")
+    @Operation(summary = "Histórico de estados", description = """
+            **Todos os perfis** (só agendamentos próprios). Mudanças de estado por ordem cronológica, com quem as fez \
+            e o motivo do cancelamento. A primeira entrada (`fromStatus` a null) é a criação. Agendamentos criados \
+            antes da existência do histórico devolvem uma lista vazia.""")
+    @ApiResponse(responseCode = "404", description = "Agendamento inexistente")
+    public ResponseEntity<List<AppointmentStatusHistoryResponse>> findHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(appointmentService.findHistory(id));
+    }
+
     @PutMapping("/{id}")
     @Operation(summary = "Reagendar / alterar estado e notas",
             description = "**ADMIN.** Aplica as mesmas regras da marcação e das transições de estado.")
@@ -71,11 +85,17 @@ public class AppointmentController {
     }
 
     @PatchMapping("/{id}/cancel")
-    @Operation(summary = "Cancelar", description = "**Todos os perfis** (só agendamentos próprios). Liberta o horário.")
-    @ApiResponse(responseCode = "400", description = "O agendamento já está num estado final")
+    @Operation(summary = "Cancelar", description = """
+            **Todos os perfis** (só agendamentos próprios). Só antes da hora de início; liberta o horário. \
+            PROFESSIONAL e ADMIN têm de indicar o `reason`; para o CUSTOMER é opcional e o corpo pode ser omitido. \
+            O motivo fica registado no histórico (`GET /api/appointments/{id}/history`).""")
+    @ApiResponse(responseCode = "400", description = "Estado final, agendamento já começou, motivo em falta ou com mais de 500 caracteres")
     @ApiResponse(responseCode = "404", description = "Agendamento inexistente")
-    public ResponseEntity<AppointmentResponse> cancel(@PathVariable Long id) {
-        AppointmentResponse response = appointmentService.updateStatus(id, AppointmentStatus.CANCELLED);
+    public ResponseEntity<AppointmentResponse> cancel(
+            @PathVariable Long id,
+            @RequestBody(required = false) @Valid AppointmentCancelRequest request) {
+        String reason = request == null ? null : request.reason();
+        AppointmentResponse response = appointmentService.cancel(id, reason);
         return ResponseEntity.ok(response);
     }
 

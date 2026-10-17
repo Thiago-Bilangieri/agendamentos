@@ -56,8 +56,16 @@ Content-Type: application/json
 PATCH {{baseUrl}}/api/appointments/{{appointmentId}}/confirm
 Authorization: Bearer {{professionalToken}}
 
-### 10. O cliente cancela (só é possível antes da hora de início); o horário fica livre
+### 10. O cliente cancela (só é possível antes da hora de início); o horário fica livre.
+# O motivo é opcional para o cliente e obrigatório para o prestador e o ADMIN
 PATCH {{baseUrl}}/api/appointments/{{appointmentId}}/cancel
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{"reason": "Surgiu um imprevisto"}
+
+### 10.1. Histórico de estados: criação, confirmação e cancelamento, com quem os fez
+GET {{baseUrl}}/api/appointments/{{appointmentId}}/history
 Authorization: Bearer {{customerToken}}
 
 ### 11. Prestador pendente: o login é recusado com 403 e o motivo

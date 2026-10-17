@@ -190,7 +190,7 @@ O esquema é gerido exclusivamente pelo Flyway (`src/main/resources/db/migration
        NO_SHOW --> [*]
    ```
 
-   `COMPLETED`, `CANCELLED` e `NO_SHOW` (falta do cliente) são estados finais: o agendamento deixa de poder ser alterado ou reagendado. `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` só antes dela.
+   `COMPLETED`, `CANCELLED` e `NO_SHOW` (falta do cliente) são estados finais: o agendamento deixa de poder ser alterado ou reagendado. `COMPLETED` e `NO_SHOW` só podem ser aplicados depois da hora de início do agendamento; `CANCELLED` só antes dela. Ao cancelar, PROFESSIONAL e ADMIN têm de indicar o motivo (`{"reason": "..."}`); para o cliente é opcional. Cada mudança de estado (incluindo a criação) fica registada no histórico do agendamento, com quem a fez, o papel, o motivo e a hora (migração V11).
 5. **Remoções**: serviços e clientes com agendamentos associados não podem ser removidos (`409`). Para retirar um serviço do catálogo, desative-o (`active = false`).
 
 #### Como uma marcação evita conflitos, mesmo com pedidos simultâneos
@@ -378,7 +378,8 @@ Todos os endpoints, exceto os de registo, login e documentação, exigem o heade
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirma |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marca como concluído |
 | PATCH | `/api/appointments/{id}/no-show` | ADMIN, PROFESSIONAL | Marca a falta do cliente |
-| PATCH | `/api/appointments/{id}/cancel` | Todos (dono) | Cancela |
+| PATCH | `/api/appointments/{id}/cancel` | Todos (dono) | Cancela. Corpo `{"reason": "..."}` obrigatório para PROFESSIONAL e ADMIN, opcional para o cliente |
+| GET | `/api/appointments/{id}/history` | Todos (dono) | Histórico de estados por ordem cronológica (vazio para agendamentos anteriores à V11) |
 
 #### Exemplo de utilização
 
@@ -681,7 +682,7 @@ The schema is managed exclusively by Flyway (`src/main/resources/db/migration`; 
        NO_SHOW --> [*]
    ```
 
-   `COMPLETED`, `CANCELLED` and `NO_SHOW` (customer did not show up) are final states: the appointment can no longer be changed or rescheduled. `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time; `CANCELLED` only before it.
+   `COMPLETED`, `CANCELLED` and `NO_SHOW` (customer did not show up) are final states: the appointment can no longer be changed or rescheduled. `COMPLETED` and `NO_SHOW` can only be applied after the appointment's start time; `CANCELLED` only before it. When cancelling, PROFESSIONAL and ADMIN must give a reason (`{"reason": "..."}`); for the customer it is optional. Every status change (creation included) is recorded in the appointment's history, with who made it, their role, the reason and the time (migration V11).
 5. **Deletions**: services and customers with appointments cannot be deleted (`409`). To remove a service from the catalogue, deactivate it (`active = false`).
 
 #### How a booking avoids conflicts, even under concurrent requests
@@ -869,7 +870,8 @@ Every endpoint except sign-up, login and documentation requires the `Authorizati
 | PATCH | `/api/appointments/{id}/confirm` | ADMIN, PROFESSIONAL | Confirms |
 | PATCH | `/api/appointments/{id}/complete` | ADMIN, PROFESSIONAL | Marks as completed |
 | PATCH | `/api/appointments/{id}/no-show` | ADMIN, PROFESSIONAL | Marks the customer as a no-show |
-| PATCH | `/api/appointments/{id}/cancel` | All (owner) | Cancels |
+| PATCH | `/api/appointments/{id}/cancel` | All (owner) | Cancels. Body `{"reason": "..."}` required for PROFESSIONAL and ADMIN, optional for the customer |
+| GET | `/api/appointments/{id}/history` | All (owner) | Status history in chronological order (empty for appointments created before V11) |
 
 #### Usage example
 

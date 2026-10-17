@@ -5,7 +5,9 @@ import com.bilangieri.agendamento.appointment.dto.AppointmentResponse;
 import com.bilangieri.agendamento.appointment.dto.AppointmentUpdateRequest;
 import com.bilangieri.agendamento.appointment.entity.Appointment;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
+import com.bilangieri.agendamento.appointment.entity.AppointmentStatusHistory;
 import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
+import com.bilangieri.agendamento.appointment.repository.AppointmentStatusHistoryRepository;
 import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
@@ -21,6 +23,7 @@ import com.bilangieri.agendamento.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,6 +45,9 @@ class AppointmentServiceTest {
 
     @Mock
     private AppointmentRepository appointmentRepository;
+
+    @Mock
+    private AppointmentStatusHistoryRepository statusHistoryRepository;
 
     @Mock
     private CustomerRepository customerRepository;
@@ -71,8 +77,8 @@ class AppointmentServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE);
-        appointmentService = new AppointmentService(appointmentRepository, customerRepository, serviceRepository,
-                userRepository, workingHoursService, currentUserService, clock);
+        appointmentService = new AppointmentService(appointmentRepository, statusHistoryRepository, customerRepository,
+                serviceRepository, userRepository, workingHoursService, currentUserService, clock);
 
         professional = User.builder().id(10L).name("Ana").email("ana@test.com").role(Role.PROFESSIONAL).build();
         customer = Customer.builder().id(1L).name("João").email("joao@test.com").build();
@@ -83,6 +89,15 @@ class AppointmentServiceTest {
 
     private void loggedInAs(Role role) {
         lenient().when(currentUserService.hasRole(any())).thenAnswer(invocation -> invocation.getArgument(0) == role);
+        // Quem fica registado no histórico de estados
+        lenient().when(currentUserService.getUser())
+                .thenReturn(User.builder().id(99L).name("Utilizador " + role).role(role).build());
+    }
+
+    private AppointmentStatusHistory savedHistoryEntry() {
+        ArgumentCaptor<AppointmentStatusHistory> captor = ArgumentCaptor.forClass(AppointmentStatusHistory.class);
+        verify(statusHistoryRepository).save(captor.capture());
+        return captor.getValue();
     }
 
     private void bookingFixtures() {
@@ -102,6 +117,9 @@ class AppointmentServiceTest {
         assertThat(response.endAt()).isEqualTo(start.plusMinutes(45));
         assertThat(response.status()).isEqualTo(AppointmentStatus.SCHEDULED);
         assertThat(response.professionalId()).isEqualTo(professional.getId());
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getFromStatus()).isNull();
+        assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
     }
 
     @Test
@@ -232,7 +250,7 @@ class AppointmentServiceTest {
         loggedInAs(Role.ADMIN);
         existingAppointment(AppointmentStatus.COMPLETED, NOW.minusDays(1));
 
-        assertThatThrownBy(() -> appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED))
+        assertThatThrownBy(() -> appointmentService.cancel(50L, "Engano"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("COMPLETED para CANCELLED");
 
@@ -265,7 +283,7 @@ class AppointmentServiceTest {
         loggedInAs(Role.ADMIN);
         existingAppointment(AppointmentStatus.SCHEDULED, NOW.minusDays(1));
 
-        assertThatThrownBy(() -> appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED))
+        assertThatThrownBy(() -> appointmentService.cancel(50L, "Engano"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("já começou");
 
@@ -278,9 +296,79 @@ class AppointmentServiceTest {
         existingAppointment(AppointmentStatus.CONFIRMED, NOW.plusDays(1));
         when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        AppointmentResponse response = appointmentService.updateStatus(50L, AppointmentStatus.CANCELLED);
+        AppointmentResponse response = appointmentService.cancel(50L, "  Prestador doente  ");
 
         assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getFromStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+        assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(entry.getChangedByRole()).isEqualTo(Role.ADMIN);
+        assertThat(entry.getReason()).isEqualTo("Prestador doente");
+        assertThat(entry.getChangedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void professionalMustGiveAReasonToCancel() {
+        loggedInAs(Role.PROFESSIONAL);
+        when(currentUserService.getEmail()).thenReturn("ana@test.com");
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
+
+        assertThatThrownBy(() -> appointmentService.cancel(50L, "   "))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("motivo do cancelamento é obrigatório");
+
+        verify(appointmentRepository, never()).save(any());
+        verify(statusHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    void adminMustGiveAReasonToCancel() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
+
+        assertThatThrownBy(() -> appointmentService.cancel(50L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("motivo do cancelamento é obrigatório");
+    }
+
+    @Test
+    void customerCancelsWithoutAReason() {
+        loggedInAs(Role.CUSTOMER);
+        when(currentUserService.getEmail()).thenReturn("joao@test.com");
+        when(customerRepository.findByUserEmail("joao@test.com")).thenReturn(Optional.of(customer));
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
+        when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AppointmentResponse response = appointmentService.cancel(50L, null);
+
+        assertThat(response.status()).isEqualTo(AppointmentStatus.CANCELLED);
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getChangedByRole()).isEqualTo(Role.CUSTOMER);
+        assertThat(entry.getReason()).isNull();
+    }
+
+    @Test
+    void confirmingRecordsTheStatusChange() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
+        when(appointmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        appointmentService.updateStatus(50L, AppointmentStatus.CONFIRMED);
+
+        AppointmentStatusHistory entry = savedHistoryEntry();
+        assertThat(entry.getFromStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
+        assertThat(entry.getToStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test
+    void reschedulingWithoutChangingStatusRecordsNoHistory() {
+        loggedInAs(Role.ADMIN);
+        existingAppointment(AppointmentStatus.SCHEDULED, NOW.plusDays(1));
+        when(appointmentRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        appointmentService.update(50L, new AppointmentUpdateRequest(NOW.plusDays(2), AppointmentStatus.SCHEDULED, null));
+
+        verify(statusHistoryRepository, never()).save(any());
     }
 
     @Test

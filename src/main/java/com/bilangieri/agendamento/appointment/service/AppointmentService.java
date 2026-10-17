@@ -2,10 +2,13 @@ package com.bilangieri.agendamento.appointment.service;
 
 import com.bilangieri.agendamento.appointment.dto.AppointmentCreateRequest;
 import com.bilangieri.agendamento.appointment.dto.AppointmentResponse;
+import com.bilangieri.agendamento.appointment.dto.AppointmentStatusHistoryResponse;
 import com.bilangieri.agendamento.appointment.dto.AppointmentUpdateRequest;
 import com.bilangieri.agendamento.appointment.entity.Appointment;
 import com.bilangieri.agendamento.appointment.entity.AppointmentStatus;
+import com.bilangieri.agendamento.appointment.entity.AppointmentStatusHistory;
 import com.bilangieri.agendamento.appointment.repository.AppointmentRepository;
+import com.bilangieri.agendamento.appointment.repository.AppointmentStatusHistoryRepository;
 import com.bilangieri.agendamento.customer.entity.Customer;
 import com.bilangieri.agendamento.customer.repository.CustomerRepository;
 import com.bilangieri.agendamento.exception.BusinessException;
@@ -37,6 +40,7 @@ public class AppointmentService {
     private static final String OVERLAP_CONSTRAINT = "appointments_no_overlap";
 
     private final AppointmentRepository appointmentRepository;
+    private final AppointmentStatusHistoryRepository statusHistoryRepository;
     private final CustomerRepository customerRepository;
     private final ServiceRepository serviceRepository;
     private final UserRepository userRepository;
@@ -88,6 +92,7 @@ public class AppointmentService {
 
         Appointment savedAppointment = saveCheckingOverlap(appointment,
                 "O profissional já possui um agendamento conflituoso neste intervalo de horários.");
+        recordStatusChange(savedAppointment, null, null);
         return AppointmentResponse.fromEntity(savedAppointment);
     }
 
@@ -114,6 +119,17 @@ public class AppointmentService {
         return AppointmentResponse.fromEntity(appointment);
     }
 
+    // Mesmas regras de acesso do detalhe; os agendamentos anteriores à V11 não têm histórico (lista vazia)
+    @Transactional(readOnly = true)
+    public List<AppointmentStatusHistoryResponse> findHistory(Long id) {
+        Appointment appointment = appointmentRepository.findWithDetailsById(id)
+                .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
+        checkOwnership(appointment);
+        return statusHistoryRepository.findByAppointmentIdOrderByChangedAtAscIdAsc(id).stream()
+                .map(AppointmentStatusHistoryResponse::fromEntity)
+                .toList();
+    }
+
     @Transactional
     public AppointmentResponse update(Long id, AppointmentUpdateRequest request) {
         Appointment appointment = appointmentRepository.findWithDetailsById(id)
@@ -136,11 +152,16 @@ public class AppointmentService {
             reschedule(appointment, startAt);
         }
 
+        AppointmentStatus previousStatus = appointment.getStatus();
         appointment.setStatus(request.status());
         appointment.setNotes(request.notes());
 
         Appointment updated = saveCheckingOverlap(appointment,
                 "O profissional já possui um agendamento conflituoso neste novo horário.");
+        // Reagendar ou alterar só as notas não é uma mudança de estado
+        if (previousStatus != updated.getStatus()) {
+            recordStatusChange(updated, previousStatus, null);
+        }
         return AppointmentResponse.fromEntity(updated);
     }
 
@@ -167,14 +188,46 @@ public class AppointmentService {
 
     @Transactional
     public AppointmentResponse updateStatus(Long id, AppointmentStatus status) {
+        return changeStatus(id, status, null);
+    }
+
+    // O CUSTOMER pode cancelar sem dizer porquê; PROFESSIONAL e ADMIN têm de indicar o motivo,
+    // para o cliente saber porque é que o agendamento foi desmarcado
+    @Transactional
+    public AppointmentResponse cancel(Long id, String reason) {
+        return changeStatus(id, AppointmentStatus.CANCELLED, reason);
+    }
+
+    private AppointmentResponse changeStatus(Long id, AppointmentStatus status, String reason) {
         Appointment appointment = appointmentRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new NotFoundException("Agendamento não encontrado com o ID: " + id));
         checkOwnership(appointment);
         validateTransition(appointment.getStatus(), status, appointment.getStartAt());
 
+        String trimmedReason = reason == null || reason.isBlank() ? null : reason.trim();
+        if (status == AppointmentStatus.CANCELLED && trimmedReason == null && !currentUserService.hasRole(Role.CUSTOMER)) {
+            throw new BusinessException("O motivo do cancelamento é obrigatório.");
+        }
+
+        AppointmentStatus previousStatus = appointment.getStatus();
         appointment.setStatus(status);
         Appointment updated = appointmentRepository.save(appointment);
+        recordStatusChange(updated, previousStatus, trimmedReason);
         return AppointmentResponse.fromEntity(updated);
+    }
+
+    // Único ponto onde se regista o histórico de estados: quem mudou, com que papel e quando
+    private void recordStatusChange(Appointment appointment, AppointmentStatus fromStatus, String reason) {
+        User changedBy = currentUserService.getUser();
+        statusHistoryRepository.save(AppointmentStatusHistory.builder()
+                .appointment(appointment)
+                .fromStatus(fromStatus)
+                .toStatus(appointment.getStatus())
+                .changedBy(changedBy)
+                .changedByRole(changedBy.getRole())
+                .reason(reason)
+                .changedAt(LocalDateTime.now(clock))
+                .build());
     }
 
     // O bloqueio do prestador serializa as marcações feitas por este serviço; a restrição
