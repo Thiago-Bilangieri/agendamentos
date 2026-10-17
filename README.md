@@ -477,6 +477,7 @@ Em desenvolvimento não é preciso configurar nada: o perfil `dev` é ativado au
 | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_DURATION` | Proteção contra força bruta: passwords erradas permitidas por email e duração do bloqueio (por omissão `5` e `15m`) | ❌ |
 | `APP_TIME_ZONE` | Fuso dos horários do negócio (por omissão `Europe/Lisbon`). As datas da API não têm fuso e são locais a este | ❌ |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (password com 8+ caracteres). Nunca altera uma conta existente | No primeiro arranque |
+| `CORS_ALLOWED_ORIGINS` | Front-ends autorizados a chamar a API a partir do browser, separados por vírgulas (por omissão `http://localhost:4200`) | ❌ |
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \
@@ -968,6 +969,7 @@ Nothing needs to be configured for development: the `dev` profile is activated a
 | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_DURATION` | Brute-force protection: wrong passwords allowed per email and lock duration (defaults to `5` and `15m`) | ❌ |
 | `APP_TIME_ZONE` | Business time zone (defaults to `Europe/Lisbon`). API dates carry no offset and are local to it | ❌ |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Creates the first ADMIN on startup if that email does not exist yet (password with 8+ characters). Never changes an existing account | On first start |
+| `CORS_ALLOWED_ORIGINS` | Front-ends allowed to call the API from the browser, comma-separated (defaults to `http://localhost:4200`) | ❌ |
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod \

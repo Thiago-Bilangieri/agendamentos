@@ -51,6 +51,9 @@ api:
       # Força bruta: após max-attempts passwords erradas, o email fica bloqueado durante lock-duration (429)
       max-attempts: ${LOGIN_MAX_ATTEMPTS:5}
       lock-duration: ${LOGIN_LOCK_DURATION:15m}
+    # Origens (front-ends) autorizadas a chamar a API a partir do browser, separadas por vírgulas
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
   admin:
     # Opcional: cria o primeiro ADMIN ao arrancar, se esse email ainda não existir (ver AdminBootstrap)
     email: ${ADMIN_EMAIL:}
